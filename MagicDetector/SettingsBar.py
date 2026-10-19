@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
     QListWidget,
+    QComboBox,
     QLineEdit,
     QSpinBox,
     QHBoxLayout,
@@ -14,7 +15,8 @@ from PySide6.QtWidgets import (
 
 from PySide6.QtCore import QTimer
 
-from scanning_process import scanning_process
+from .scanning_process import scanning_process
+from pathlib import Path
 import threading
 
 
@@ -27,6 +29,26 @@ class SettingsBar(QWidget):
 
     def create_layout(self):
         sidebar_layout = QVBoxLayout(self)
+
+        repository_root = Path(__file__).resolve().parent.parent
+        model_paths = sorted(
+            (repository_root / "models").glob("*.onnx"),
+            key=lambda path: (path.name != "320n.onnx", path.name.lower()),
+        )
+        if not model_paths:
+            model_paths = [repository_root / "safenet" / "320n.onnx"]
+
+        self.model_selector = QComboBox()
+        for model_path in model_paths:
+            self.model_selector.addItem(model_path.stem, str(model_path))
+        saved_model = self.settings_index.get("model_path", str(model_paths[0]))
+        saved_index = self.model_selector.findData(saved_model)
+        if saved_index >= 0:
+            self.model_selector.setCurrentIndex(saved_index)
+        self.model_selector.currentIndexChanged.connect(self.save_model)
+        sidebar_layout.addWidget(
+            self.create_setting_widget("Detection model:", self.model_selector)
+        )
 
         # Add folder input
         self.add_folder_btn = QPushButton("Add Folder for Scan")
@@ -88,11 +110,7 @@ class SettingsBar(QWidget):
 
         # QTimer to update number of scanned items
         self.scanned_items_timer = QTimer()
-        self.scanned_items_timer.timeout.connect(
-            lambda: self.scanned_items.setText(
-                f"{self.get_number_of_scanned_items()} images scanned"
-            )
-        )
+        self.scanned_items_timer.timeout.connect(self.refresh_scan_status)
         self.scanned_items_timer.start(1000)
 
         return sidebar_layout
@@ -104,14 +122,27 @@ class SettingsBar(QWidget):
         if not self.scanner_thread or not self.scanner_thread.is_alive():
             self.start_scan_btn.setEnabled(False)
             self.start_scan_btn.setText("Scanning...")
+            self.model_selector.setEnabled(False)
             self.start_scan_btn.repaint()
             self.scanner_thread = threading.Thread(
                 target=scanning_process,
                 args=(
                     self.settings_index["folders_to_scan"],
                     self.settings_index.get("folders_to_ignore", []),
+                    self.model_selector.currentData(),
                 ),
-            ).start()
+            )
+            self.scanner_thread.start()
+
+    def refresh_scan_status(self):
+        self.scanned_items.setText(
+            f"{self.get_number_of_scanned_items()} images scanned"
+        )
+        if self.scanner_thread and not self.scanner_thread.is_alive():
+            self.scanner_thread = None
+            self.model_selector.setEnabled(True)
+            self.start_scan_btn.setEnabled(True)
+            self.start_scan_btn.setText("Start Scan")
 
     def create_setting_widget(self, label_text, setting_widget):
         layout = QHBoxLayout()
@@ -143,6 +174,9 @@ class SettingsBar(QWidget):
 
     def save_min_image_res(self):
         self.settings_index["min_image_res"] = self.min_image_res.text()
+
+    def save_model(self):
+        self.settings_index["model_path"] = self.model_selector.currentData()
 
     def save_min_file_size(self):
         self.settings_index["min_file_size"] = self.min_file_size.value()

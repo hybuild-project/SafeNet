@@ -3,7 +3,8 @@ name: Build docker image
 on:
   push:
     paths:
-      - 'fastdeploy_recipe/requirements.txt'
+      - 'fastdeploy_recipe/**'
+      - 'safenet/**'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +28,7 @@ jobs:
     - name: Build and push Docker images
       uses: docker/build-push-action@v2
       with:
-        context: ./fastdeploy_recipe/
+        context: .
         file: ./fastdeploy_recipe/fastDeploy.auto_dockerfile
         push: true
-        tags: ghcr.io/notai-tech/nudenet:latest
+        tags: ghcr.io/hybuild-project/safenet:latest

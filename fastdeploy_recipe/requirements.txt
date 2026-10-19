@@ -1,1 +1,3 @@
-nudenet
+numpy
+onnxruntime
+opencv-python-headless

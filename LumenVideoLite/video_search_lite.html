@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Lumen Video Lite</title>
+  <style>
+    :root {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #20352f;
+      background: #f4f5ef;
+      --ink: #20352f;
+      --muted: #71807a;
+      --line: #dce2da;
+      --paper: #fffefa;
+      --green: #286b54;
+      --green-dark: #1b4e3e;
+      --coral: #c85f3d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f4f5ef;
+      background-image: linear-gradient(rgba(42, 88, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(42, 88, 68, .035) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1500px, 100%); margin: 0 auto; padding: 22px clamp(12px, 3vw, 38px) 32px; }
+    .topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 4px; background: var(--green); color: white; font: 700 17px Georgia, serif; }
+    .brand-kicker { color: var(--muted); font-size: 10px; font-weight: 800; }
+    h1 { margin: 2px 0 0; font: 600 22px/1.15 Georgia, "Iowan Old Style", serif; }
+    .server-state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .state-dot { width: 8px; height: 8px; border-radius: 50%; background: #74a486; box-shadow: 0 0 0 3px #e0eee3; }
+    .settings-button { display: inline-flex; align-items: center; gap: 7px; }
+    .settings-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .field { display: grid; min-width: 0; gap: 6px; }
+    .field label, .group-label { color: var(--muted); font-size: 10px; font-weight: 800; }
+    input, select { min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #cfd8cf; border-radius: 3px; outline: none; background: white; color: var(--ink); }
+    input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(40, 107, 84, .12); }
+    .input-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; padding: 0 0 12px; }
+    .input-toolbar .field { flex: 1 1 300px; }
+    .input-toolbar input { width: 100%; }
+    .toggle-control { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .toggle-control input { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+    .mode-field[hidden] { display: none; }
+    .button, .quiet-button { min-height: 38px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 700; transition: background .15s, border-color .15s; }
+    .button:hover, .quiet-button:hover { border-color: #8ca99a; background: #f4faf4; }
+    .button.primary { border-color: var(--coral); background: var(--coral); color: white; }
+    .button.primary:hover { border-color: #ad4e31; background: #ad4e31; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    .status-line { display: flex; min-height: 38px; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .status-line.loading::before { width: 13px; height: 13px; border: 2px solid #cad8cd; border-top-color: var(--coral); border-radius: 50%; content: ""; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .workspace { display: grid; height: max(520px, calc(100vh - 280px), var(--workspace-content-height, 0px)); grid-template-columns: var(--list-pane-width, minmax(260px, .75fr)) 10px minmax(400px, 1.6fr); align-items: stretch; min-height: 520px; border: 1px solid var(--line); background: var(--paper); }
+    .results-pane, .detail-pane { min-width: 0; }
+    .results-pane { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: visible; border-right: 0; }
+    .results-pane.list-collapsed { visibility: hidden; overflow: hidden; }
+    .pane-heading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 800; }
+    .result-list { min-height: 0; flex: 0 0 auto; overflow: visible; }
+    .result { display: grid; width: 100%; grid-template-columns: 86px minmax(0, 1fr); align-items: center; gap: 11px; padding: 10px; border: 0; border-bottom: 1px solid #e9ece6; background: transparent; color: inherit; text-align: left; }
+    .result:hover { background: #f7f8f2; }
+    .result.selected { background: #edf4eb; box-shadow: inset 3px 0 var(--green); }
+    .result img, .thumb-placeholder { display: grid; width: 86px; height: 56px; place-items: center; object-fit: cover; background: #e7ece5; color: #97a49b; font: 11px Georgia, serif; }
+    .result-title { display: block; overflow: hidden; margin-bottom: 5px; font-size: 12px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+    .result-meta { display: block; color: var(--muted); font-size: 10px; }
+    .list-empty, .detail-empty { display: grid; min-height: 180px; place-items: center; padding: 20px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
+    .detail-pane { display: flex; min-height: 0; flex-direction: column; overflow: visible; padding: 15px; }
+    .detail-head { margin-bottom: 10px; }
+    .detail-head h2 { overflow-wrap: anywhere; margin: 0 0 4px; font: 600 19px/1.2 Georgia, serif; }
+    .detail-path { overflow-wrap: anywhere; color: var(--muted); font-size: 10px; }
+    .video-frame { display: grid; width: min(100%, 1920px); min-height: 0; flex: 0 0 auto; aspect-ratio: 16 / 9; place-items: center; overflow: hidden; margin: 0 auto 18px; background: #172722; }
+    .video-stage { width: 100%; height: 100%; overflow: hidden; border-radius: 4px; }
+    video { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; background: #172722; object-fit: contain; }
+    .preview-panel { display: flex; height: auto; min-height: var(--preview-panel-height, 180px); flex: 0 0 auto; flex-direction: column; overflow: visible; }
+    .thumb-strip { display: grid; width: min(100%, 1920px); grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-flow: row; gap: 8px; margin: 0 auto 14px; overflow: visible; }
+    .thumb-strip.single-line { display: flex; width: min(100%, 1920px); flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0 auto 14px; overflow-x: auto; }
+    .preview-thumb { position: relative; width: 100%; height: auto; min-width: 0; overflow: hidden; padding: 0; border: 1px solid transparent; background: #e7ece5; aspect-ratio: 16 / 9; }
+    .thumb-strip.single-line .preview-thumb { width: var(--preview-single-width, 220px); height: var(--preview-single-height, 124px); flex: 0 0 auto; aspect-ratio: 16 / 9; }
+    .preview-thumb:hover, .preview-thumb:focus-visible { border-color: var(--coral); outline: 2px solid rgba(200, 95, 61, .24); }
+    .preview-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .preview-time { position: absolute; right: 3px; bottom: 3px; padding: 2px 4px; background: rgba(18, 34, 27, .82); color: white; font-size: 9px; font-variant-numeric: tabular-nums; }
+    .smart-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+    .smart-toolbar progress { width: min(180px, 34vw); height: 8px; accent-color: var(--green); }
+    .smart-status { flex: 1 1 180px; min-width: 0; color: var(--muted); font-size: 11px; }
+    .detection-panel { display: grid; gap: 10px; margin: 0 0 16px; padding: 12px; border: 1px solid var(--line); background: #fbfcf7; }
+    .detection-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+    .detection-toolbar h3 { flex: 0 0 auto; margin: 0; font: 600 16px Georgia, serif; }
+    .detection-status { flex: 1 1 220px; min-width: 0; color: var(--muted); font-size: 11px; }
+    .detection-toolbar progress { width: min(180px, 34vw); height: 8px; accent-color: var(--green); }
+    .detection-filters { display: flex; flex-wrap: wrap; gap: 12px 18px; }
+    .detection-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; }
+    .detection-filter-group strong { color: var(--muted); font-size: 10px; }
+    .detection-filter { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-size: 10px; }
+    .detection-filter input { width: 14px; height: 14px; margin: 0; accent-color: var(--green); }
+    .detection-swatch { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 1px; }
+    .detection-chart-wrap { position: relative; min-height: 156px; border: 1px solid var(--line); background: white; }
+    .detection-chart { display: block; width: 100%; height: 156px; cursor: crosshair; }
+    .detection-chart-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 11px; pointer-events: none; }
+    .detection-tooltip { position: absolute; z-index: 2; display: grid; max-width: min(280px, calc(100% - 8px)); gap: 3px; padding: 7px 9px; border: 1px solid #52635b; background: #20352f; color: white; font-size: 10px; line-height: 1.4; pointer-events: none; }
+    .detection-tooltip-heading { padding-bottom: 3px; border-bottom: 1px solid #52635b; color: #dce2da; font-variant-numeric: tabular-nums; }
+    .detection-tooltip-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .detection-tooltip-swatch { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 1px; }
+    .detection-frame-dialog { width: min(1100px, calc(100% - 24px)); max-width: 1100px; padding: 10px; background: #172722; }
+    .detection-frame-dialog img { display: block; width: 100%; max-height: 78vh; object-fit: contain; }
+    .detection-frame-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 0 8px; color: white; font-size: 12px; }
+    .detection-frame-head button { border-color: #52635b; background: #263a31; color: white; }
+    .resize-handle { position: relative; z-index: 2; display: grid; flex: 0 0 10px; place-items: center; padding: 0; border: 0; background: #eef1ed; touch-action: none; }
+    .resize-handle::after { width: 2px; height: 100%; border-radius: 2px; background: #b7c3b9; content: ""; }
+    .resize-handle:hover, .resize-handle:focus-visible, .resize-handle.dragging { background: rgba(200, 95, 61, .12); }
+    .resize-handle:hover::after, .resize-handle:focus-visible::after, .resize-handle.dragging::after { background: var(--coral); }
+    .column-resizer { cursor: col-resize; }
+    .action-line { flex: 0 0 auto; }
+    .action-line { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; overflow: visible; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .playback-section { flex: 0 0 auto; margin: 0; padding: 0; border: 0; }
+    .playback-controls { display: flex; flex-wrap: nowrap; align-items: end; gap: 9px; }
+    .control-group { display: grid; gap: 6px; }
+    .seek-controls { display: flex; align-items: end; gap: 6px; }
+    .seek-controls button { display: grid; width: 38px; height: 38px; min-width: 38px; place-items: center; padding: 0; }
+    .seek-controls svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .seek-controls svg text { fill: currentColor; stroke: none; font: 700 6px sans-serif; }
+    .speed-field { width: 78px; }
+    .detail-actions { display: flex; flex: 0 1 auto; align-items: end; }
+    .move-controls { display: grid; min-width: 0; max-width: 100%; flex: 0 1 auto; align-content: end; justify-items: start; gap: 6px; }
+    .quick-move-buttons { display: flex; max-width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: 5px; }
+    .quick-move-buttons button { min-width: 0; padding: 8px 7px; font-size: 10px; white-space: nowrap; }
+    .trash-button { display: grid; width: 36px; height: 38px; flex: 0 0 36px; place-items: center; margin-left: 2px; padding: 0; border-color: #e1b2ae; color: #b42318; }
+    .trash-button:hover { border-color: #cf7770; background: #fff2f0; color: #8d1c14; }
+    .trash-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .toast { position: fixed; right: 18px; bottom: 18px; max-width: min(420px, calc(100vw - 36px)); padding: 11px 14px; background: var(--green-dark); color: white; font-size: 12px; box-shadow: 0 5px 20px rgba(20, 45, 35, .18); opacity: 0; pointer-events: none; transform: translateY(8px); transition: .2s; }
+    .toast.show { opacity: 1; transform: none; }
+    dialog { width: min(520px, calc(100% - 24px)); max-height: min(90vh, 760px); overflow: auto; border: 1px solid var(--line); padding: 0; color: var(--ink); box-shadow: 0 18px 70px rgba(21, 47, 37, .22); }
+    dialog::backdrop { background: rgba(22, 42, 34, .42); }
+    .settings-content { display: grid; gap: 14px; padding: 20px; }
+    .settings-content h2 { margin: 0; font: 600 21px Georgia, serif; }
+    .settings-fields { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .model-settings { display: grid; gap: 8px; margin: 0; padding: 10px; border: 1px solid var(--line); }
+    .model-settings legend { padding: 0 5px; color: var(--muted); font-size: 10px; font-weight: 800; }
+    .model-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+    .model-option { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 12px; }
+    .model-option input { width: 15px; height: 15px; margin: 0; accent-color: var(--green); }
+    .model-warmup-status { min-height: 16px; color: var(--muted); font-size: 11px; }
+    .settings-field { display: grid; min-width: 0; gap: 6px; }
+    .settings-field label { color: var(--muted); font-size: 10px; font-weight: 800; }
+    .settings-field input { width: 100%; }
+    .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .settings-help { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    [data-desktop-picker][hidden] { display: none; }
+    @media (max-width: 850px) {
+      .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(260px, 1fr)); }
+      .results-pane { border-right: 0; border-bottom: 1px solid var(--line); }
+      .column-resizer { display: none; }
+      .result-list { max-height: none; }
+    }
+    @media (max-width: 580px) {
+      .shell { padding: 14px 10px 24px; }
+      .server-state { display: none; }
+      .settings-content { padding: 14px; }
+      .settings-fields { grid-template-columns: 1fr; }
+      .detail-pane { padding: 10px; }
+      .result { grid-template-columns: 74px minmax(0, 1fr); }
+      .result img, .thumb-placeholder { width: 74px; height: 50px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topline">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">L</div>
+        <div><div class="brand-kicker">LUMEN / VIDEO LITE</div><h1>Raccolta video</h1></div>
+      </div>
+      <div class="top-actions">
+        <span class="server-state"><i class="state-dot"></i> Elaborazione locale</span>
+        <button class="quiet-button settings-button" id="settingsButton" type="button" aria-haspopup="dialog" aria-controls="settingsDialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+          <span>Impostazioni</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="status-line" id="statusLine" role="status" aria-live="polite">Connessione al catalogo…</div>
+
+    <section class="input-toolbar" aria-label="Cartella input e indicizzazione">
+      <div class="field">
+        <label class="group-label" for="rootPath">CARTELLE INPUT</label>
+        <input id="rootPath" type="text" spellcheck="false" required aria-label="Percorso assoluto cartella input">
+        <button class="quiet-button" id="inputFolderPicker" type="button" data-desktop-picker hidden>Scegli cartella…</button>
+      </div>
+      <button class="button primary" id="indexButton" type="button">Indicizza / aggiorna</button>
+      <button class="quiet-button" id="clearCacheButton" type="button">Svuota cache</button>
+    </section>
+    <section class="workspace" aria-label="Libreria video">
+      <section class="results-pane" aria-label="Elenco video">
+        <div class="pane-heading"><span>VIDEO</span><span id="videoCount">0</span></div>
+        <div class="result-list" id="resultList"><div class="list-empty">Caricamento catalogo…</div></div>
+      </section>
+      <div class="resize-handle column-resizer" id="columnResizer" role="separator" aria-orientation="vertical" aria-label="Ridimensiona lista video e player" aria-valuemin="0" aria-valuemax="900" aria-valuenow="320" tabindex="0"></div>
+      <section class="detail-pane" id="detailPane" aria-label="Player e azioni video">
+        <div class="detail-empty">Seleziona un video dall’elenco</div>
+      </section>
+    </section>
+  </main>
+  <dialog id="settingsDialog">
+    <form class="settings-content" id="settingsForm">
+      <h2>Impostazioni</h2>
+      <div class="settings-fields">
+        <div class="settings-field"><label for="outputTop">CARTELLA TOP</label><input id="outputTop" type="text" required><button type="button" class="quiet-button" data-desktop-picker data-picker-for="outputTop" hidden>Scegli cartella…</button></div>
+        <div class="settings-field"><label for="outputMain">CARTELLA MAIN</label><input id="outputMain" type="text" required><button type="button" class="quiet-button" data-desktop-picker data-picker-for="outputMain" hidden>Scegli cartella…</button></div>
+        <div class="settings-field"><label for="outputLinger">CARTELLA LINGER</label><input id="outputLinger" type="text" required><button type="button" class="quiet-button" data-desktop-picker data-picker-for="outputLinger" hidden>Scegli cartella…</button></div>
+      </div>
+      <fieldset class="model-settings">
+        <legend>MODELLI PER LA TIMELINE</legend>
+        <div class="model-options" id="detectionModelOptions"></div>
+        <span class="model-warmup-status" id="modelWarmupStatus" role="status" aria-live="polite"></span>
+      </fieldset>
+      <p class="settings-help">Inserisci percorsi assoluti. Le cartelle di destinazione vengono create se necessario.</p>
+      <label class="toggle-control"><input id="thumbnailLayoutToggle" type="checkbox"> Anteprime su una riga</label>
+      <div class="settings-actions"><button class="quiet-button" id="resetLayoutButton" type="button">Ripristina default</button></div>
+      <div class="dialog-actions"><button class="quiet-button" id="closeSettings" type="button">Chiudi</button><button class="button" type="submit">Salva impostazioni</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const resultList = $("#resultList");
+    let videos = [];
+    let selectedPath = "";
+    let toastTimer;
+    let wasRunning = false;
+    let desktopMode = false;
+    let outputFolders = { top: "", main: "", linger: "" };
+    let smartJobId = "";
+    let smartJobPath = "";
+    let smartLatestState = null;
+    const smartControls = new Map();
+    let detectionJobId = "";
+    let detectionJobPath = "";
+    let detectionData = null;
+    let detectionControls = null;
+    let detectionFilterState = {};
+    let detectionChartObserver = null;
+    let detectionFrameUrl = "";
+    let detectionFrameMap = new Map();
+    let activeDetectionModels = ["320n", "top_yolov8s"];
+    let availableDetectionModels = [];
+    let modelPreloadState = { status: "loading", message: "Precaricamento modelli…" };
+    const DEFAULT_PREVIEW_PANEL_HEIGHT = 180;
+    let selectedThumbnailLayout = localStorage.getItem("lumen-thumbnail-layout") || "grid";
+    const storedListPaneWidth = localStorage.getItem("lumen-list-pane-width");
+    let listPaneWidth = storedListPaneWidth === null ? null : Number(storedListPaneWidth);
+    let previewStripObserver = null;
+    let workspaceContentObserver = null;
+    let workspaceFitQueued = false;
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = response.headers.get("content-type")?.includes("application/json") ? await response.json() : {};
+      if (!response.ok) {
+        const error = new Error(data.error || `Richiesta non riuscita (${response.status})`);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+      }
+      return data;
+    }
+    function post(url, body) {
+      return request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+    function notify(message) {
+      const toast = $("#toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+    function formatDuration(seconds) {
+      if (!seconds) return "Durata non disponibile";
+      const total = Math.floor(seconds);
+      return `${String(Math.floor(total / 3600)).padStart(2, "0")}:${String(Math.floor(total % 3600 / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+    }
+    function formatTime(seconds) {
+      const value = Math.max(0, Math.floor(seconds));
+      return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    }
+    function detectionModelLabel(model) {
+      return ({ "320n": "320", "640m": "640", top_yolov8s: "TOP" })[model] || model;
+    }
+    function renderDetectionModelOptions(models, selected) {
+      const container = $("#detectionModelOptions");
+      if (!container) return;
+      container.replaceChildren();
+      models.forEach((model) => {
+        const label = document.createElement("label");
+        label.className = "model-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = model;
+        checkbox.checked = selected.includes(model);
+        const text = document.createElement("span");
+        text.textContent = detectionModelLabel(model);
+        label.append(checkbox, text);
+        container.append(label);
+      });
+      availableDetectionModels = models;
+    }
+    function updateStatus(state) {
+      const line = $("#statusLine");
+      line.textContent = `${state.message} · ${state.count} video`;
+      line.classList.toggle("loading", Boolean(state.running));
+      $("#indexButton").disabled = Boolean(state.running);
+      $("#clearCacheButton").disabled = Boolean(state.running);
+      if (state.root && document.activeElement !== $("#rootPath")) $("#rootPath").value = state.root;
+      outputFolders = state.output_folders || outputFolders;
+      activeDetectionModels = state.detection_models || activeDetectionModels;
+      const nextModels = state.available_detection_models || availableDetectionModels;
+      if (JSON.stringify(nextModels) !== JSON.stringify(availableDetectionModels)) {
+        renderDetectionModelOptions(nextModels, activeDetectionModels);
+      } else if (!$("#settingsDialog").open) {
+        $("#detectionModelOptions").querySelectorAll("input[type=checkbox]").forEach((input) => {
+          input.checked = activeDetectionModels.includes(input.value);
+        });
+      }
+      modelPreloadState = state.model_preload || modelPreloadState;
+      $("#modelWarmupStatus").textContent = modelPreloadState.message || "";
+      updateDetectionControls(null);
+      desktopMode = Boolean(state.desktop_mode);
+      document.querySelectorAll("[data-desktop-picker]").forEach((button) => { button.hidden = !desktopMode; });
+      $("#rootPath").hidden = desktopMode;
+      document.querySelectorAll(".settings-field input[id^='output']").forEach((input) => { input.hidden = desktopMode; });
+      wasRunning = Boolean(state.running);
+    }
+    async function loadState() {
+      try {
+        const state = await request("/api/state");
+        const finished = wasRunning && !state.running;
+        updateStatus(state);
+        if (finished) await loadVideos();
+      } catch (error) {
+        $("#statusLine").textContent = error.message;
+      }
+    }
+    function addResult(video, index) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `result${video.path === selectedPath ? " selected" : ""}`;
+      button.setAttribute("aria-pressed", String(video.path === selectedPath));
+      const thumb = video.thumbnails?.[0];
+      const image = thumb?.url ? document.createElement("img") : document.createElement("span");
+      if (image instanceof HTMLImageElement) {
+        image.src = thumb.url;
+        image.alt = "";
+        image.loading = index < 8 ? "eager" : "lazy";
+      } else {
+        image.className = "thumb-placeholder";
+        image.textContent = "VIDEO";
+      }
+      const details = document.createElement("span");
+      const title = document.createElement("span");
+      title.className = "result-title";
+      title.textContent = video.filename;
+      const metadata = document.createElement("span");
+      metadata.className = "result-meta";
+      metadata.textContent = `${formatDuration(Number(video.duration))} · ${video.width ? `${video.width} × ${video.height}` : "Dimensione non disponibile"}`;
+      details.append(title, metadata);
+      button.append(image, details);
+      button.addEventListener("click", () => selectVideo(video.path));
+      resultList.append(button);
+    }
+    async function loadVideos() {
+      try {
+        const data = await request("/api/videos");
+        videos = data.videos;
+        $("#videoCount").textContent = String(videos.length);
+        resultList.replaceChildren();
+        if (!videos.length) {
+          const empty = document.createElement("div");
+          empty.className = "list-empty";
+          empty.textContent = "Nessun video indicizzato. Scegli una cartella e avvia l’indicizzazione.";
+          resultList.append(empty);
+          selectedPath = "";
+          if (previewStripObserver) previewStripObserver.disconnect();
+          $("#detailPane").innerHTML = '<div class="detail-empty">Seleziona un video dall’elenco</div>';
+          observeWorkspaceContent([$(".results-pane"), resultList, $("#detailPane")]);
+          return;
+        }
+        videos.forEach(addResult);
+        const nextPath = videos.some((video) => video.path === selectedPath) ? selectedPath : videos[0].path;
+        selectVideo(nextPath);
+      } catch (error) {
+        notify(error.message);
+      }
+    }
+    function addPreviewThumb(strip, player, preview, filename) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "preview-thumb";
+      button.title = `Vai a ${formatTime(preview.time)}`;
+      button.setAttribute("aria-label", `Vai al fotogramma di ${filename} a ${formatTime(preview.time)}`);
+      const image = document.createElement("img");
+      image.src = preview.url;
+      image.alt = `Anteprima a ${formatTime(preview.time)}`;
+      image.loading = "lazy";
+      const time = document.createElement("span");
+      time.className = "preview-time";
+      time.textContent = formatTime(preview.time);
+      button.append(image, time);
+      button.addEventListener("click", () => {
+        const seek = () => {
+          if (Number.isFinite(player.duration)) player.currentTime = Math.min(preview.time, Math.max(0, player.duration - 0.05));
+          player.pause();
+        };
+        if (player.readyState >= 1) seek();
+        else player.addEventListener("loadedmetadata", seek, { once: true });
+      });
+      strip.append(button);
+    }
+    function applyThumbnailLayout(strip) {
+      strip.classList.toggle("single-line", selectedThumbnailLayout === "single");
+      updateThumbnailDimensions(strip);
+    }
+    function updateThumbnailDimensions(strip) {
+      const panel = strip.closest(".preview-panel");
+      const toolbar = panel?.querySelector(".smart-toolbar");
+      if (!panel) return;
+      const requestedHeight = Number(panel.dataset.requestedHeight) || DEFAULT_PREVIEW_PANEL_HEIGHT;
+      const toolbarHeight = toolbar?.getBoundingClientRect().height || 0;
+      const actionLine = panel.querySelector(".action-line");
+      const actionLineHeight = actionLine?.getBoundingClientRect().height || 0;
+      const availableWidth = Math.max(0, strip.clientWidth || panel.clientWidth);
+      const count = strip.querySelectorAll(".preview-thumb").length;
+      const gap = 8;
+      const previewSpacing = 22;
+      const fixedContentHeight = toolbarHeight + actionLineHeight + previewSpacing;
+      const cellWidth = Math.max(1, (availableWidth - gap * 4) / 5);
+      const cellHeight = cellWidth * 9 / 16;
+
+      if (count === 0) {
+        strip.style.height = `${cellHeight}px`;
+        const panelHeight = Math.max(requestedHeight, fixedContentHeight + cellHeight);
+        panel.style.height = `${panelHeight}px`;
+        panel.style.minHeight = `${panelHeight}px`;
+        return;
+      }
+      const singleLine = selectedThumbnailLayout === "single";
+      const rows = singleLine ? 1 : Math.ceil(count / 5);
+      const stripHeight = rows * cellHeight + gap * (rows - 1);
+      const minimumHeight = fixedContentHeight + stripHeight;
+      const panelHeight = Math.max(requestedHeight, minimumHeight);
+      strip.style.height = `${stripHeight}px`;
+      strip.style.gridTemplateColumns = `repeat(5, minmax(0, 1fr))`;
+      strip.style.gridTemplateRows = `repeat(${rows}, ${cellHeight}px)`;
+      strip.style.setProperty("--preview-single-height", `${cellHeight}px`);
+      strip.style.setProperty("--preview-single-width", `${cellWidth}px`);
+      panel.style.height = `${panelHeight}px`;
+      panel.style.minHeight = `${panelHeight}px`;
+      panel.dataset.contentMinHeight = String(minimumHeight);
+      scheduleWorkspaceFit();
+    }
+    function fitWorkspaceToContent() {
+      const workspace = $(".workspace");
+      const detailPane = $("#detailPane");
+      const resultsPane = $(".results-pane");
+      const baseHeight = Math.max(520, window.innerHeight - 280);
+      const measureContentHeight = (container) => {
+        const containerTop = container.getBoundingClientRect().top;
+        const paddingBottom = Number.parseFloat(getComputedStyle(container).paddingBottom) || 0;
+        const childrenBottom = [...container.children].reduce((bottom, child) => {
+          const childStyle = getComputedStyle(child);
+          const marginBottom = Number.parseFloat(childStyle.marginBottom) || 0;
+          return Math.max(bottom, child.getBoundingClientRect().bottom - containerTop + marginBottom);
+        }, 0);
+        return childrenBottom + paddingBottom;
+      };
+      const contentHeight = Math.max(measureContentHeight(detailPane), measureContentHeight(resultsPane)) + 2;
+      const requiredHeight = Math.max(baseHeight, contentHeight);
+      const currentHeight = Number.parseFloat(workspace.style.getPropertyValue("--workspace-content-height")) || 0;
+      if (Math.abs(currentHeight - requiredHeight) > 1) {
+        workspace.style.setProperty("--workspace-content-height", `${Math.ceil(requiredHeight)}px`);
+      }
+    }
+    function scheduleWorkspaceFit() {
+      if (workspaceFitQueued) return;
+      workspaceFitQueued = true;
+      requestAnimationFrame(() => {
+        workspaceFitQueued = false;
+        fitWorkspaceToContent();
+      });
+    }
+    function observeWorkspaceContent(nodes) {
+      if (workspaceContentObserver) workspaceContentObserver.disconnect();
+      workspaceContentObserver = new ResizeObserver(scheduleWorkspaceFit);
+      nodes.filter(Boolean).forEach((node) => workspaceContentObserver.observe(node));
+      scheduleWorkspaceFit();
+    }
+    function bindResizeHandle(handle, axis, getStartValue, getLimits, setValue) {
+      let activePointer = null;
+      let startPosition = 0;
+      let startValue = 0;
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        activePointer = event.pointerId;
+        startPosition = axis === "x" ? event.clientX : event.clientY;
+        startValue = getStartValue();
+        handle.classList.add("dragging");
+        handle.setPointerCapture(activePointer);
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (activePointer !== event.pointerId) return;
+        const position = axis === "x" ? event.clientX : event.clientY;
+        const [minimum, maximum] = getLimits();
+        setValue(Math.max(minimum, Math.min(maximum, startValue + position - startPosition)));
+      });
+      const stopDragging = (event) => {
+        if (activePointer !== event.pointerId) return;
+        activePointer = null;
+        handle.classList.remove("dragging");
+      };
+      handle.addEventListener("pointerup", stopDragging);
+      handle.addEventListener("pointercancel", stopDragging);
+      handle.addEventListener("keydown", (event) => {
+        const negative = axis === "x" ? "ArrowLeft" : "ArrowUp";
+        const positive = axis === "x" ? "ArrowRight" : "ArrowDown";
+        if (event.key !== negative && event.key !== positive) return;
+        event.preventDefault();
+        const [minimum, maximum] = getLimits();
+        const delta = event.key === positive ? 16 : -16;
+        setValue(Math.max(minimum, Math.min(maximum, getStartValue() + delta)));
+      });
+    }
+    function setListPaneWidth(width) {
+      const workspace = $(".workspace");
+      workspace.style.setProperty("--list-pane-width", `${Math.round(width)}px`);
+      $(".results-pane").classList.toggle("list-collapsed", width < 12);
+      $("#columnResizer").setAttribute("aria-valuenow", String(Math.round(width)));
+      listPaneWidth = width;
+      localStorage.setItem("lumen-list-pane-width", String(Math.round(width)));
+    }
+    function bindColumnResizer() {
+      const workspace = $(".workspace");
+      const handle = $("#columnResizer");
+      const maximum = Math.max(0, workspace.clientWidth - 410);
+      handle.setAttribute("aria-valuemax", String(Math.round(maximum)));
+      if (listPaneWidth !== null && Number.isFinite(listPaneWidth)) {
+        setListPaneWidth(Math.max(0, Math.min(listPaneWidth, maximum)));
+      } else {
+        handle.setAttribute("aria-valuenow", String(Math.round($(".results-pane").getBoundingClientRect().width)));
+      }
+      bindResizeHandle(
+        handle,
+        "x",
+        () => $(".results-pane").getBoundingClientRect().width,
+        () => [0, Math.max(0, workspace.clientWidth - 410)],
+        setListPaneWidth,
+      );
+    }
+    function setPreviewPanelHeight(panel, height) {
+      const panelHeight = Math.max(160, Math.round(height));
+      panel.dataset.requestedHeight = String(panelHeight);
+      panel.style.setProperty("--preview-panel-height", `${panelHeight}px`);
+      const strip = panel.querySelector(".thumb-strip");
+      if (strip) updateThumbnailDimensions(strip);
+      scheduleWorkspaceFit();
+    }
+    async function resetLayout() {
+      selectedThumbnailLayout = "grid";
+      listPaneWidth = null;
+      localStorage.removeItem("lumen-thumbnail-layout");
+      localStorage.removeItem("lumen-list-pane-width");
+      localStorage.removeItem("lumen-preview-panel-height");
+      localStorage.removeItem("lumen-show-video-list");
+      const workspace = $(".workspace");
+      workspace.style.removeProperty("--list-pane-width");
+      workspace.style.removeProperty("--workspace-content-height");
+      $(".results-pane").classList.remove("list-collapsed");
+      $("#thumbnailLayoutToggle").checked = false;
+      const defaultModels = ["320n", "top_yolov8s"].filter((model) => availableDetectionModels.includes(model));
+      if (!defaultModels.length) defaultModels.push(availableDetectionModels[0]);
+      $("#detectionModelOptions").querySelectorAll("input[type=checkbox]").forEach((input) => {
+        input.checked = defaultModels.includes(input.value);
+      });
+      document.querySelectorAll(".thumb-strip").forEach(applyThumbnailLayout);
+      const panel = $(".preview-panel");
+      if (panel) setPreviewPanelHeight(panel, DEFAULT_PREVIEW_PANEL_HEIGHT);
+      const columnHandle = $("#columnResizer");
+      if (columnHandle) {
+        columnHandle.setAttribute("aria-valuenow", String(Math.round($(".results-pane").getBoundingClientRect().width)));
+      }
+      try {
+        const saved = await post("/api/settings", settingsPayload());
+        activeDetectionModels = saved.detection_models || defaultModels;
+        modelPreloadState = saved.model_preload || modelPreloadState;
+        $("#modelWarmupStatus").textContent = modelPreloadState.message || "";
+        if (detectionControls) {
+          detectionData = null;
+          detectionControls.filters.replaceChildren();
+          detectionControls.filters.hidden = true;
+          detectionControls.empty.hidden = false;
+          detectionControls.empty.textContent = "Precaricamento modelli selezionati…";
+          detectionControls.start.disabled = true;
+        }
+      } catch (error) {
+        notify(error.message);
+        return;
+      }
+      scheduleWorkspaceFit();
+      notify("Default ripristinati");
+    }
+    bindColumnResizer();
+    function renderSmartState(path, state) {
+      const controls = smartControls.get(path);
+      if (!controls) return;
+      const ownsJob = smartJobId && smartJobPath === path;
+      const busyElsewhere = smartJobId && smartJobPath !== path;
+      controls.button.disabled = Boolean(state?.running || busyElsewhere);
+      controls.button.textContent = state?.running ? "Analisi smart in corso…" : "Rigenera anteprime smart";
+      controls.cancel.hidden = !state?.running || !ownsJob;
+      controls.cancel.disabled = !ownsJob;
+      controls.progress.hidden = !state?.running;
+      controls.progress.value = Number(state?.progress || 0);
+      controls.status.textContent = busyElsewhere
+        ? "È in corso una rigenerazione su un altro video."
+        : state?.message || "L’elaborazione parte solo su richiesta.";
+    }
+    async function refreshPreviewStrip(path, player) {
+      const data = await request("/api/videos");
+      videos = data.videos;
+      const video = videos.find((item) => item.path === path);
+      if (!video || selectedPath !== path) return;
+      const strip = document.querySelector(".thumb-strip");
+      if (!strip) return;
+      strip.replaceChildren();
+      applyThumbnailLayout(strip);
+      (video.thumbnails || []).forEach((preview) => addPreviewThumb(strip, player, preview, video.filename));
+      if (!video.thumbnails?.length) {
+        const empty = document.createElement("span");
+        empty.className = "list-empty";
+        empty.textContent = "Le anteprime verranno create durante l’indicizzazione.";
+        strip.append(empty);
+      }
+    }
+    async function pollSmartJob(path, player) {
+      const jobId = smartJobId;
+      while (jobId && smartJobId === jobId) {
+        try {
+          const state = await request(`/api/smart/status?job_id=${encodeURIComponent(jobId)}`);
+          smartLatestState = state;
+          renderSmartState(path, state);
+          if (!state.running) {
+            if (state.status === "completed") await refreshPreviewStrip(path, player);
+            if (state.status === "completed") notify("Anteprime smart aggiornate");
+            else if (state.status === "failed" || state.status === "no_results") notify(state.message);
+            smartJobId = "";
+            smartJobPath = "";
+            renderSmartState(path, state);
+            return;
+          }
+        } catch (error) {
+          smartLatestState = { running: false, message: error.message };
+          renderSmartState(path, smartLatestState);
+          smartJobId = "";
+          smartJobPath = "";
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+    }
+    function activeDetectionClasses(data) {
+      return Object.fromEntries(Object.entries(data.classes || {}).map(([model, classes]) => [
+        model,
+        classes.filter((label) => detectionFilterState[model]?.[label] !== false),
+      ]));
+    }
+    let detectionColors = {
+      BACK: "#2d824b",
+      BEST: "#3269dc",
+      GEN: "#dc7323",
+      ASS: "#b450a0",
+      BELLY: "#1e9bbe",
+      TOP: "#2850e1",
+    };
+    function activeFrameEvents(frame, model, enabled) {
+      return (frame?.models?.[model] || []).filter((event) => enabled.has(event.label));
+    }
+    function drawDetectionChart(canvas, data) {
+      if (!canvas || !data) return;
+      const bounds = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.round(bounds.width * ratio));
+      const height = Math.max(1, Math.round(bounds.height * ratio));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, width, height);
+      const left = Math.round(34 * ratio);
+      const right = Math.round(10 * ratio);
+      const top = Math.round(12 * ratio);
+      const bottom = Math.round(27 * ratio);
+      const plotWidth = Math.max(1, width - left - right);
+      const plotHeight = Math.max(1, height - top - bottom);
+      const enabledClasses = Object.fromEntries(Object.entries(activeDetectionClasses(data)).map(([model, classes]) => [model, new Set(classes)]));
+      const series = [];
+      for (const model of data.models || []) {
+        for (const label of enabledClasses[model] || []) {
+          series.push({ model, label, values: new Float32Array(plotWidth) });
+        }
+      }
+      const seriesByKey = new Map(series.map((item) => [`${item.model}:${item.label}`, item]));
+      data.frames.forEach((frame) => {
+        const x = Math.min(plotWidth - 1, Math.floor(frame.frameIndex / Math.max(1, data.frameCount - 1) * plotWidth));
+        for (const model of data.models || []) {
+          for (const event of frame.models?.[model] || []) {
+            const line = seriesByKey.get(`${model}:${event.label}`);
+            if (line) line.values[x] = Math.max(line.values[x], event.score);
+          }
+        }
+      });
+      context.font = `${10 * ratio}px sans-serif`;
+      context.textBaseline = "middle";
+      context.fillStyle = "#71807a";
+      context.strokeStyle = "#dce2da";
+      context.lineWidth = ratio;
+      context.beginPath();
+      context.moveTo(left, top);
+      context.lineTo(left, top + plotHeight);
+      context.lineTo(width - right, top + plotHeight);
+      context.stroke();
+      context.textAlign = "right";
+      context.fillText("100%", left - 5 * ratio, top + 4 * ratio);
+      context.fillText("50%", left - 5 * ratio, top + plotHeight / 2);
+      context.fillText("0%", left - 5 * ratio, top + plotHeight);
+      context.textAlign = "left";
+      context.textBaseline = "top";
+      context.fillText("00:00", left, height - bottom + 8 * ratio);
+      context.textAlign = "right";
+      context.fillText(formatTime(data.duration), width - right, height - bottom + 8 * ratio);
+
+      for (const item of series) {
+        const values = item.values;
+        context.beginPath();
+        context.strokeStyle = detectionColors[item.label] || "#52635b";
+        context.lineWidth = 1.7 * ratio;
+        for (let x = 0; x < values.length; x += 1) {
+          const y = top + plotHeight - values[x] * plotHeight;
+          if (x === 0) context.moveTo(left + x, y);
+          else context.lineTo(left + x, y);
+        }
+        context.stroke();
+      }
+    }
+    function renderDetectionFilters() {
+      if (!detectionControls || !detectionData) return;
+      const { filters, chart, empty } = detectionControls;
+      filters.replaceChildren();
+      for (const model of detectionData.models || []) {
+        const group = document.createElement("div");
+        group.className = "detection-filter-group";
+        detectionFilterState[model] ||= Object.fromEntries(
+          (detectionData.classes?.[model] || []).map((label) => [label, ["BEST", "TOP"].includes(label)])
+        );
+        const heading = document.createElement("strong");
+        heading.textContent = detectionModelLabel(model);
+        group.append(heading);
+        for (const label of detectionData.classes?.[model] || []) {
+          const wrapper = document.createElement("label");
+          wrapper.className = "detection-filter";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = detectionFilterState[model][label] === true;
+          checkbox.addEventListener("change", () => {
+            detectionFilterState[model] ||= {};
+            detectionFilterState[model][label] = checkbox.checked;
+            drawDetectionChart(chart, detectionData);
+          });
+          const swatch = document.createElement("span");
+          swatch.className = "detection-swatch";
+          swatch.style.backgroundColor = detectionColors[label] || "#52635b";
+          const text = document.createElement("span");
+          text.textContent = label;
+          wrapper.append(checkbox, swatch, text);
+          group.append(wrapper);
+        }
+        filters.append(group);
+      }
+      filters.hidden = false;
+      empty.hidden = true;
+      drawDetectionChart(chart, detectionData);
+    }
+    function updateDetectionControls(state) {
+      if (!detectionControls) return;
+      const busyElsewhere = detectionJobId && detectionJobPath !== detectionControls.path;
+      const modelsReady = modelPreloadState.status === "ready";
+      detectionControls.start.disabled = Boolean(state?.running || busyElsewhere || !modelsReady);
+      detectionControls.start.textContent = detectionData
+        ? "Ricalcola timeline"
+        : `Analizza ${activeDetectionModels.map(detectionModelLabel).join(" + ")}`;
+      detectionControls.cancel.hidden = !state?.running || detectionJobPath !== detectionControls.path;
+      detectionControls.cancel.disabled = !state?.running || detectionJobPath !== detectionControls.path;
+      detectionControls.progress.hidden = !state?.running;
+      detectionControls.progress.value = Number(state?.progress || 0);
+      detectionControls.status.textContent = busyElsewhere
+        ? "Analisi in corso su un altro video."
+        : !modelsReady
+          ? modelPreloadState.message || "Precaricamento modelli…"
+          : detectionData
+            ? `Cache pronta · ${detectionData.frameCount.toLocaleString()} frame · ${detectionData.frames.length.toLocaleString()} frame con eventi`
+            : state?.message || "Avvia l’analisi frame per frame.";
+    }
+      function hideDetectionImage() {
+        if (!detectionControls) return;
+        detectionControls.frameView.hidden = true;
+        detectionControls.frameImage.removeAttribute("src");
+        if (detectionFrameUrl) URL.revokeObjectURL(detectionFrameUrl);
+        detectionFrameUrl = "";
+      }
+    async function showDetectionFrame(path, player, frameIndex) {
+      const activeClasses = activeDetectionClasses(detectionData);
+      const response = await fetch("/api/detection/frame", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, frameIndex, activeClasses }),
+      });
+      if (!response.ok) {
+        let message = `Frame non disponibile (${response.status})`;
+        try { message = (await response.json()).error || message; } catch (_) { /* no-op */ }
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      if (detectionFrameUrl) URL.revokeObjectURL(detectionFrameUrl);
+      detectionFrameUrl = URL.createObjectURL(blob);
+      detectionControls.frameTitle.textContent = `${detectionControls.videoName} · ${formatTime(frameIndex / detectionData.fps)} · frame ${frameIndex}`;
+      detectionControls.frameImage.src = detectionFrameUrl;
+      detectionControls.frameView.hidden = false;
+      const playerTime = frameIndex / detectionData.fps;
+      player.pause();
+      if (player.readyState >= 1) player.currentTime = clampPlayerTime(player, playerTime);
+      else player.addEventListener("loadedmetadata", () => { player.currentTime = clampPlayerTime(player, playerTime); }, { once: true });
+    }
+    async function loadDetectionTimeline(path) {
+      try {
+        const data = await request(`/api/detection/data?path=${encodeURIComponent(path)}`);
+        if (selectedPath !== path || !detectionControls) return;
+        detectionData = data;
+        detectionColors = { ...detectionColors, ...(data.colors || {}) };
+        detectionFrameMap = new Map(data.frames.map((frame) => [frame.frameIndex, frame]));
+        renderDetectionFilters();
+        updateDetectionControls(null);
+      } catch (error) {
+        if (error.status !== 404 && detectionControls?.path === path) detectionControls.status.textContent = error.message;
+      }
+    }
+    async function pollDetectionJob(path) {
+      const jobId = detectionJobId;
+      while (jobId && detectionJobId === jobId) {
+        try {
+          const state = await request(`/api/detection/status?job_id=${encodeURIComponent(jobId)}`);
+          updateDetectionControls(state);
+          if (!state.running) {
+            detectionJobId = "";
+            detectionJobPath = "";
+            if (["completed", "cached"].includes(state.status)) {
+              await loadDetectionTimeline(path);
+              if (state.status === "completed") notify("Timeline detect aggiornata");
+            }
+            updateDetectionControls(state);
+            return;
+          }
+        } catch (error) {
+          detectionControls?.status && (detectionControls.status.textContent = error.message);
+          detectionJobId = "";
+          detectionJobPath = "";
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    }
+    async function startDetectionTimeline(path) {
+      if (detectionJobId) return;
+      detectionControls.start.disabled = true;
+      try {
+        const started = await post("/api/detection/start", { path });
+        detectionJobId = started.jobId;
+        detectionJobPath = path;
+        detectionControls.status.textContent = "Avvio modelli 640m e TOP…";
+        pollDetectionJob(path);
+      } catch (error) {
+        detectionControls.start.disabled = false;
+        detectionControls.status.textContent = error.message;
+      }
+    }
+    function clampPlayerTime(player, value) {
+      const max = Number.isFinite(player.duration) && player.duration > 0 ? Math.max(0, player.duration - 0.05) : 0;
+      return Math.min(Math.max(value, 0), max);
+    }
+    function stepPlayer(player, delta) {
+      if (!player || Number.isNaN(player.currentTime)) return;
+      player.currentTime = clampPlayerTime(player, player.currentTime + delta);
+    }
+    function selectVideo(path) {
+      if (detectionFrameUrl) URL.revokeObjectURL(detectionFrameUrl);
+      detectionFrameUrl = "";
+      selectedPath = path;
+      const video = videos.find((item) => item.path === path);
+      if (!video) return;
+      [...resultList.children].forEach((item, index) => {
+        item.classList.toggle("selected", videos[index]?.path === path);
+        item.setAttribute("aria-pressed", String(videos[index]?.path === path));
+      });
+      const pane = $("#detailPane");
+      if (previewStripObserver) previewStripObserver.disconnect();
+      if (workspaceContentObserver) workspaceContentObserver.disconnect();
+      if (detectionChartObserver) detectionChartObserver.disconnect();
+      smartControls.clear();
+      detectionControls = null;
+      detectionData = null;
+      detectionFilterState = {};
+      pane.replaceChildren();
+      const head = document.createElement("div");
+      head.className = "detail-head";
+      const title = document.createElement("h2");
+      title.textContent = video.filename;
+      const pathLabel = document.createElement("div");
+      pathLabel.className = "detail-path";
+      pathLabel.textContent = video.path;
+      head.append(title, pathLabel);
+
+      const frame = document.createElement("div");
+      frame.className = "video-frame";
+      const stage = document.createElement("div");
+      stage.className = "video-stage";
+      const player = document.createElement("video");
+      player.controls = false;
+      player.preload = "metadata";
+      player.playsInline = true;
+      player.tabIndex = 0;
+      player.src = `/api/video?path=${encodeURIComponent(video.path)}`;
+      const detectionView = document.createElement("div");
+      detectionView.className = "video-detection-view";
+      detectionView.hidden = true;
+      const detectionHead = document.createElement("div");
+      detectionHead.className = "video-detection-head";
+      const detectionTitle = document.createElement("span");
+      const closeDetectionView = document.createElement("button");
+      closeDetectionView.type = "button";
+      closeDetectionView.title = "Chiudi il frame annotato";
+      closeDetectionView.setAttribute("aria-label", closeDetectionView.title);
+      closeDetectionView.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+      const detectionImage = document.createElement("img");
+      detectionImage.alt = "Frame fermo annotato con i rilevamenti selezionati";
+      closeDetectionView.addEventListener("click", hideDetectionImage);
+      detectionHead.append(detectionTitle, closeDetectionView);
+      detectionView.append(detectionHead, detectionImage);
+      stage.append(player, detectionView);
+      stage.addEventListener("pointerenter", () => { player.controls = true; });
+      stage.addEventListener("pointerleave", (event) => {
+        if (event.pointerType === "mouse" && document.activeElement !== player) player.controls = false;
+      });
+      player.addEventListener("focus", () => { player.controls = true; });
+      player.addEventListener("blur", () => { player.controls = false; });
+      frame.append(stage);
+
+      const thumbs = document.createElement("div");
+      thumbs.className = "thumb-strip";
+      applyThumbnailLayout(thumbs);
+      (video.thumbnails || []).forEach((preview) => addPreviewThumb(thumbs, player, preview, video.filename));
+      if (!video.thumbnails?.length) {
+        const empty = document.createElement("span");
+        empty.className = "list-empty";
+        empty.textContent = "Le anteprime verranno create durante l’indicizzazione.";
+        thumbs.append(empty);
+      }
+
+      const smartToolbar = document.createElement("div");
+      smartToolbar.className = "smart-toolbar";
+      const standardButton = document.createElement("button");
+      standardButton.type = "button";
+      standardButton.className = "quiet-button";
+      standardButton.textContent = "Rigenera anteprime standard";
+      standardButton.addEventListener("click", async () => {
+        standardButton.disabled = true;
+        try {
+          await post("/api/previews/standard", { path: video.path });
+          await refreshPreviewStrip(video.path, player);
+          notify("Cinque anteprime standard aggiornate");
+        } catch (error) {
+          notify(error.message);
+        } finally {
+          standardButton.disabled = false;
+        }
+      });
+      const smartButton = document.createElement("button");
+      smartButton.type = "button";
+      smartButton.className = "button primary";
+      smartButton.textContent = "Rigenera anteprime smart";
+      const smartProgress = document.createElement("progress");
+      smartProgress.max = 100;
+      smartProgress.hidden = true;
+      smartProgress.setAttribute("aria-label", "Avanzamento analisi smart");
+      const smartStatus = document.createElement("span");
+      smartStatus.className = "smart-status";
+      smartStatus.setAttribute("role", "status");
+      smartStatus.setAttribute("aria-live", "polite");
+      const smartCancel = document.createElement("button");
+      smartCancel.type = "button";
+      smartCancel.className = "quiet-button";
+      smartCancel.textContent = "Annulla";
+      smartCancel.hidden = true;
+      smartToolbar.append(standardButton, smartButton, smartProgress, smartStatus, smartCancel);
+      smartControls.set(video.path, {
+        button: smartButton, progress: smartProgress, status: smartStatus, cancel: smartCancel,
+      });
+      renderSmartState(video.path, smartLatestState?.jobId === smartJobId ? smartLatestState : null);
+      smartButton.addEventListener("click", async () => {
+        smartButton.disabled = true;
+        try {
+          const started = await post("/api/smart/start", { path: video.path });
+          smartJobId = started.jobId;
+          smartJobPath = video.path;
+          smartLatestState = { jobId: started.jobId, running: true, progress: 0, message: "Preparazione analisi…" };
+          renderSmartState(video.path, smartLatestState);
+          pollSmartJob(video.path, player);
+        } catch (error) {
+          smartButton.disabled = false;
+          smartStatus.textContent = error.message;
+        }
+      });
+      smartCancel.addEventListener("click", async () => {
+        if (!smartJobId || smartJobPath !== video.path) return;
+        smartCancel.disabled = true;
+        try {
+          await post("/api/smart/cancel", { jobId: smartJobId });
+          smartStatus.textContent = "Annullamento richiesto…";
+        } catch (error) {
+          smartStatus.textContent = error.message;
+        }
+      });
+
+      const playbackSection = document.createElement("section");
+      playbackSection.className = "playback-section";
+      const playbackControls = document.createElement("div");
+      playbackControls.className = "playback-controls";
+      const seekGroup = document.createElement("div");
+      seekGroup.className = "control-group";
+      const seekLabel = document.createElement("span");
+      seekLabel.className = "group-label";
+      seekLabel.textContent = "CONTROLLI";
+      const seekControls = document.createElement("div");
+      seekControls.className = "seek-controls";
+      const frameStep = Number(video.fps) > 0 ? 1 / Number(video.fps) : 1 / 25;
+      [
+        { label: "Indietro di 1 secondo", delta: -1, icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 6 9 12l10 6Z"/><text x="13" y="14" text-anchor="middle">1s</text></svg>' },
+        { label: "Avanti di 1 secondo", delta: 1, icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 6l10 6-10 6Z"/><text x="11" y="14" text-anchor="middle">1s</text></svg>' },
+        { label: "Indietro di 1 fotogramma", delta: -frameStep, icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="M14 9l-4 3 4 3"/></svg>' },
+        { label: "Avanti di 1 fotogramma", delta: frameStep, icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="m10 9 4 3-4 3"/></svg>' },
+      ].forEach(({ label, delta, icon }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quiet-button";
+        button.innerHTML = icon;
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.addEventListener("click", () => stepPlayer(player, delta));
+        seekControls.append(button);
+      });
+      seekGroup.append(seekLabel, seekControls);
+
+      const speedField = document.createElement("div");
+      speedField.className = "field speed-field";
+      const speedLabel = document.createElement("label");
+      speedLabel.className = "group-label";
+      speedLabel.textContent = "VELOCITÀ";
+      const speedSelect = document.createElement("select");
+      [1, 3, 4, 5].forEach((rate) => {
+        const option = document.createElement("option");
+        option.value = String(rate);
+        option.textContent = `x${rate}`;
+        speedSelect.append(option);
+      });
+      speedSelect.value = String(player.playbackRate);
+      speedSelect.addEventListener("change", () => { player.playbackRate = Number(speedSelect.value); });
+      player.addEventListener("ratechange", () => {
+        const rate = String(player.playbackRate);
+        if (![...speedSelect.options].some((option) => option.value === rate)) {
+          const option = document.createElement("option");
+          option.value = rate;
+          option.textContent = `x${Number(rate).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
+          speedSelect.append(option);
+        }
+        speedSelect.value = rate;
+      });
+      speedField.append(speedLabel, speedSelect);
+      playbackControls.append(seekGroup, speedField);
+      playbackSection.append(playbackControls);
+
+      const moveControls = document.createElement("div");
+      moveControls.className = "move-controls";
+      const outputLabel = document.createElement("span");
+      outputLabel.className = "group-label";
+      outputLabel.textContent = "CARTELLE DI OUTPUT";
+      const moveButtons = document.createElement("div");
+      moveButtons.className = "quick-move-buttons";
+      [
+        { key: "top", label: "TOP" },
+        { key: "main", label: "MAIN" },
+        { key: "linger", label: "LINGER" },
+      ].forEach(({ key, label }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quiet-button";
+        button.textContent = label;
+        button.title = `Sposta in ${outputFolders[key]}`;
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          try {
+            const data = await post("/api/move", { path: video.path, subfolder: key });
+            selectedPath = "";
+            await loadVideos();
+            notify(`Spostato in ${data.path}`);
+          } catch (error) {
+            notify(error.message);
+          } finally {
+            button.disabled = false;
+          }
+        });
+        moveButtons.append(button);
+      });
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "quiet-button trash-button";
+      deleteButton.title = desktopMode ? "Sposta nel cestino di Windows" : "Elimina definitivamente il video";
+      deleteButton.setAttribute("aria-label", deleteButton.title);
+      deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+      deleteButton.addEventListener("click", async () => {
+        const confirmationMessage = desktopMode
+          ? `Spostare "${video.filename}" nel cestino di Windows?`
+          : `Eliminare definitivamente "${video.filename}"? Questa operazione non è reversibile.`;
+        const confirmed = window.confirm(confirmationMessage);
+        if (!confirmed) return;
+        deleteButton.disabled = true;
+        try {
+          await post("/api/delete", { path: video.path, confirmed: true });
+          selectedPath = "";
+          await loadVideos();
+          notify(desktopMode ? "Video spostato nel cestino" : "Video eliminato definitivamente");
+        } catch (error) {
+          notify(error.message);
+        } finally {
+          deleteButton.disabled = false;
+        }
+      });
+      moveButtons.append(deleteButton);
+      moveControls.append(outputLabel, moveButtons);
+      const actionLine = document.createElement("div");
+      actionLine.className = "action-line";
+      actionLine.append(playbackSection, moveControls);
+      const previewPanel = document.createElement("section");
+      previewPanel.className = "preview-panel";
+      previewPanel.append(thumbs, smartToolbar, actionLine);
+      const detectionPanel = document.createElement("section");
+      detectionPanel.className = "detection-panel";
+      const detectionToolbar = document.createElement("div");
+      detectionToolbar.className = "detection-toolbar";
+      const detectionHeading = document.createElement("h3");
+      detectionHeading.textContent = "Timeline";
+      const detectionStart = document.createElement("button");
+      detectionStart.type = "button";
+      detectionStart.className = "button primary";
+      detectionStart.textContent = `Analizza ${activeDetectionModels.map(detectionModelLabel).join(" + ")}`;
+      const detectionCancel = document.createElement("button");
+      detectionCancel.type = "button";
+      detectionCancel.className = "quiet-button";
+      detectionCancel.textContent = "Annulla";
+      detectionCancel.hidden = true;
+      const detectionProgress = document.createElement("progress");
+      detectionProgress.max = 100;
+      detectionProgress.hidden = true;
+      detectionProgress.setAttribute("aria-label", "Avanzamento analisi frame per frame");
+      const detectionStatus = document.createElement("span");
+      detectionStatus.className = "detection-status";
+      detectionStatus.setAttribute("role", "status");
+      detectionStatus.setAttribute("aria-live", "polite");
+      detectionToolbar.append(detectionHeading, detectionStart, detectionCancel, detectionProgress, detectionStatus);
+      const detectionFilters = document.createElement("div");
+      detectionFilters.className = "detection-filters";
+      detectionFilters.hidden = true;
+      const chartWrap = document.createElement("div");
+      chartWrap.className = "detection-chart-wrap";
+      const chart = document.createElement("canvas");
+      chart.className = "detection-chart";
+      chart.setAttribute("aria-label", "Conteggio dei rilevamenti nel tempo. Fai clic per aprire il frame.");
+      const chartEmpty = document.createElement("div");
+      chartEmpty.className = "detection-chart-empty";
+      chartEmpty.textContent = "Avvia l’analisi per generare la timeline";
+      const tooltip = document.createElement("div");
+      tooltip.className = "detection-tooltip";
+      tooltip.hidden = true;
+      chartWrap.append(chart, chartEmpty, tooltip);
+      detectionPanel.append(detectionToolbar, detectionFilters, chartWrap);
+      detectionControls = {
+        path: video.path,
+        videoName: video.filename,
+        frameView: detectionView,
+        frameTitle: detectionTitle,
+        frameImage: detectionImage,
+        start: detectionStart,
+        cancel: detectionCancel,
+        progress: detectionProgress,
+        status: detectionStatus,
+        filters: detectionFilters,
+        chart,
+        empty: chartEmpty,
+        tooltip,
+      };
+      detectionStart.addEventListener("click", () => startDetectionTimeline(video.path));
+      detectionCancel.addEventListener("click", async () => {
+        if (!detectionJobId || detectionJobPath !== video.path) return;
+        detectionCancel.disabled = true;
+        try {
+          await post("/api/detection/cancel", { jobId: detectionJobId });
+          detectionStatus.textContent = "Annullamento richiesto…";
+        } catch (error) {
+          detectionStatus.textContent = error.message;
+        }
+      });
+      chart.addEventListener("click", async (event) => {
+        if (!detectionData) return;
+        const bounds = chart.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left - 34) / Math.max(1, bounds.width - 44)));
+        const frameIndex = Math.round(ratio * Math.max(0, detectionData.frameCount - 1));
+        try {
+          await showDetectionFrame(video.path, player, frameIndex);
+        } catch (error) {
+          notify(error.message);
+        }
+      });
+      chart.addEventListener("pointermove", (event) => {
+        if (!detectionData || !detectionControls) return;
+        const bounds = chart.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left - 34) / Math.max(1, bounds.width - 44)));
+        const frameIndex = Math.round(ratio * Math.max(0, detectionData.frameCount - 1));
+        const frameData = detectionFrameMap.get(frameIndex);
+        const active = activeDetectionClasses(detectionData);
+        const events = (detectionData.models || []).flatMap((model) =>
+          activeFrameEvents(frameData, model, new Set(active[model] || [])).map((event) => ({
+            ...event,
+            model: detectionModelLabel(model),
+          }))
+        ).sort((left, right) => right.score - left.score);
+        tooltip.replaceChildren();
+        const heading = document.createElement("div");
+        heading.className = "detection-tooltip-heading";
+        heading.textContent = `${formatTime(frameIndex / detectionData.fps)} · frame ${frameIndex}`;
+        tooltip.append(heading);
+        if (events.length) {
+          events.forEach((event) => {
+            const row = document.createElement("div");
+            row.className = "detection-tooltip-row";
+            const swatch = document.createElement("span");
+            swatch.className = "detection-tooltip-swatch";
+            swatch.style.backgroundColor = detectionColors[event.label] || "#52635b";
+            const value = document.createElement("span");
+            value.textContent = `${event.label} ${Math.round(event.score * 100)}% · ${event.model}`;
+            row.append(swatch, value);
+            tooltip.append(row);
+          });
+        } else {
+          const empty = document.createElement("div");
+          empty.textContent = "Nessun evento selezionato";
+          tooltip.append(empty);
+        }
+        tooltip.hidden = false;
+        const x = Math.min(event.clientX - bounds.left + 10, bounds.width - tooltip.offsetWidth - 4);
+        const y = Math.max(4, event.clientY - bounds.top - tooltip.offsetHeight - 8);
+        tooltip.style.left = `${Math.max(4, x)}px`;
+        tooltip.style.top = `${y}px`;
+      });
+      chart.addEventListener("pointerleave", () => { tooltip.hidden = true; });
+      updateDetectionControls(detectionJobPath === video.path && detectionJobId
+        ? { running: true, progress: 0, message: "Analisi già in corso…" }
+        : null);
+      pane.append(head, frame, previewPanel, detectionPanel);
+      setPreviewPanelHeight(previewPanel, DEFAULT_PREVIEW_PANEL_HEIGHT);
+      applyThumbnailLayout(thumbs);
+      previewStripObserver = new ResizeObserver(() => updateThumbnailDimensions(thumbs));
+      previewStripObserver.observe(thumbs);
+      detectionChartObserver = new ResizeObserver(() => drawDetectionChart(chart, detectionData));
+      detectionChartObserver.observe(chartWrap);
+      loadDetectionTimeline(video.path);
+      observeWorkspaceContent([
+        $(".results-pane"), resultList, pane, head, frame, previewPanel,
+        smartToolbar, actionLine,
+      ]);
+    }
+
+    function settingsPayload() {
+      return {
+        input_root: $("#rootPath").value,
+        output_folders: {
+          top: $("#outputTop").value || outputFolders.top,
+          main: $("#outputMain").value || outputFolders.main,
+          linger: $("#outputLinger").value || outputFolders.linger,
+        },
+        detection_models: [...$("#detectionModelOptions").querySelectorAll("input:checked")]
+          .map((input) => input.value),
+      };
+    }
+    async function chooseDesktopFolder(inputId) {
+      const input = $(`#${inputId}`);
+      try {
+        const selected = await post("/api/folder/pick", {
+          kind: inputId === "rootPath" ? "input" : "output",
+          current: input.value,
+        });
+        if (selected.path) input.value = selected.path;
+      } catch (error) { notify(error.message); }
+    }
+    async function fillSettings() {
+      try {
+        const state = await request("/api/state");
+        outputFolders = state.output_folders || outputFolders;
+        activeDetectionModels = state.detection_models || activeDetectionModels;
+        renderDetectionModelOptions(
+          state.available_detection_models || availableDetectionModels,
+          activeDetectionModels,
+        );
+        modelPreloadState = state.model_preload || modelPreloadState;
+        $("#outputTop").value = outputFolders.top;
+        $("#outputMain").value = outputFolders.main;
+        $("#outputLinger").value = outputFolders.linger;
+        $("#modelWarmupStatus").textContent = modelPreloadState.message || "";
+        $("#thumbnailLayoutToggle").checked = selectedThumbnailLayout === "single";
+        $("#settingsDialog").showModal();
+      } catch (error) { notify(error.message); }
+    }
+    $("#settingsButton").addEventListener("click", fillSettings);
+    document.addEventListener("pointerdown", (event) => {
+      if (!detectionControls || detectionControls.frameView.hidden) return;
+      if (!detectionControls.frameImage.contains(event.target)) hideDetectionImage();
+    });
+    $("#resetLayoutButton").addEventListener("click", resetLayout);
+    $("#thumbnailLayoutToggle").addEventListener("change", () => {
+      selectedThumbnailLayout = $("#thumbnailLayoutToggle").checked ? "single" : "grid";
+      localStorage.setItem("lumen-thumbnail-layout", selectedThumbnailLayout);
+      document.querySelectorAll(".thumb-strip").forEach(applyThumbnailLayout);
+    });
+    $("#inputFolderPicker").addEventListener("click", () => chooseDesktopFolder("rootPath"));
+    document.querySelectorAll("[data-picker-for]").forEach((button) => {
+      button.addEventListener("click", () => chooseDesktopFolder(button.dataset.pickerFor));
+    });
+    $("#closeSettings").addEventListener("click", () => $("#settingsDialog").close());
+    $("#settingsForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const previousModels = activeDetectionModels.join(",");
+        const saved = await post("/api/settings", settingsPayload());
+        outputFolders = saved.output_folders;
+        activeDetectionModels = saved.detection_models || activeDetectionModels;
+        modelPreloadState = saved.model_preload || modelPreloadState;
+        $("#modelWarmupStatus").textContent = modelPreloadState.message || "";
+        $("#settingsDialog").close();
+        await loadState();
+        if (previousModels !== activeDetectionModels.join(",") && detectionControls) {
+          detectionData = null;
+          detectionFilterState = {};
+          detectionControls.filters.replaceChildren();
+          detectionControls.filters.hidden = true;
+          detectionControls.empty.hidden = false;
+          detectionControls.empty.textContent = "Precaricamento modelli selezionati…";
+          drawDetectionChart(detectionControls.chart, null);
+          loadDetectionTimeline(detectionControls.path);
+        }
+        await loadVideos();
+        notify("Impostazioni salvate");
+      } catch (error) { notify(error.message); }
+    });
+    $("#clearCacheButton").addEventListener("click", async () => {
+      if (!window.confirm("Eliminare tutte le anteprime generate? I video non verranno modificati.")) return;
+      try {
+        const data = await post("/api/cache/clear", {});
+        await loadVideos();
+        notify(`${data.removed} anteprime eliminate dalla cache`);
+      } catch (error) { notify(error.message); }
+    });
+    $("#indexButton").addEventListener("click", async () => {
+      try {
+        await post("/api/settings", settingsPayload());
+        await post("/api/index", { root: $("#rootPath").value, mode: "CPU" });
+        $("#settingsDialog").close();
+        await loadState();
+      } catch (error) { notify(error.message); }
+    });
+    loadState().then(loadVideos);
+    setInterval(loadState, 1000);
+  </script>
+</body>
+</html>  </script>
+</body>
+</html></html>

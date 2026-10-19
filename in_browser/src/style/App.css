@@ -19,6 +19,22 @@
   margin: 5px 0;
 }
 
+.model-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.model-picker select {
+  min-width: 180px;
+  padding: 6px 8px;
+  color: inherit;
+  background: Canvas;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
+
 .code {
   padding: 5px;
   color: greenyellow;

@@ -1,7 +1,8 @@
-def scanning_process(list_of_dirs, list_of_ignored_dirs):
-    from nudenet import NudeDetector
+def scanning_process(list_of_dirs, list_of_ignored_dirs, model_path=None):
+    from safenet import SafeDetector, all_labels_sfw
     from liteindex import DefinedIndex
     from glob import iglob
+    import json
     import os
     import hashlib
 
@@ -11,29 +12,13 @@ def scanning_process(list_of_dirs, list_of_ignored_dirs):
             "image_path": "string",
             "image_size": "number",
             "image_hash": "string",
-            "FEMALE_GENITALIA_COVERED": "number",
-            "FACE_FEMALE": "number",
-            "BUTTOCKS_EXPOSED": "number",
-            "FEMALE_BREAST_EXPOSED": "number",
-            "FEMALE_GENITALIA_EXPOSED": "number",
-            "MALE_BREAST_EXPOSED": "number",
-            "ANUS_EXPOSED": "number",
-            "FEET_EXPOSED": "number",
-            "BELLY_COVERED": "number",
-            "FEET_COVERED": "number",
-            "ARMPITS_COVERED": "number",
-            "ARMPITS_EXPOSED": "number",
-            "FACE_MALE": "number",
-            "BELLY_EXPOSED": "number",
-            "MALE_GENITALIA_EXPOSED": "number",
-            "ANUS_COVERED": "number",
-            "FEMALE_BREAST_COVERED": "number",
-            "BUTTOCKS_COVERED": "number",
+            "detections": "string",
+            **{label: "number" for label in all_labels_sfw},
         },
         db_path="images_index.db",
     )
 
-    detector = NudeDetector()
+    detector = SafeDetector(model_path=model_path)
 
     for dir in list_of_dirs:
         for file in iglob(os.path.join(dir, "**", "*.*"), recursive=True):
@@ -43,7 +28,12 @@ def scanning_process(list_of_dirs, list_of_ignored_dirs):
                         ignored_dir in file for ignored_dir in list_of_ignored_dirs
                     ):
                         preds = detector.detect(file)
-                        data = {p["class"]: float(p["score"]) for p in preds}
+                        data = {
+                            prediction["class"]: float(prediction["score"])
+                            for prediction in preds
+                            if prediction["class"] in all_labels_sfw
+                        }
+                        data["detections"] = json.dumps(preds)
                         data["image_path"] = file
                         data["image_size"] = os.path.getsize(file)
                         data["image_hash"] = hashlib.sha256(

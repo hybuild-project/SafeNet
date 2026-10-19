@@ -6,12 +6,12 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = "nudenet"
-DESCRIPTION = "Lightweight Nudity Detection"
-URL = "https://github.com/notAI-tech/nudenet"
+NAME = "safenet"
+DESCRIPTION = "SafeNet image content moderation"
+URL = "https://github.com/hybuild-project/SafeNet"
 EMAIL = "praneeth@bpraneeth.com"
 AUTHOR = "BEDAPUDI PRANEETH"
-REQUIRES_PYTHON = ">=3.6.0"
+REQUIRES_PYTHON = ">=3.8.0"
 VERSION = "3.4.2"
 
 # What packages are required for this module to be executed?
@@ -101,11 +101,10 @@ setup(
     packages=find_packages(exclude=("tests",)),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
-    entry_points={"console_scripts": ["nudenet=nudenet:main"]},
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     package_data={
-        'nudenet': ['nudenet/320n.onnx'],   # '': ['*'] means all dirs
+        "safenet": ["320n.onnx"],
     },
     include_package_data=True,
     license="MIT",
@@ -114,7 +113,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     # $ setup.py publish support.

@@ -1,11 +1,9 @@
-import labels from "./labels.json";
-
 /**
  * Render prediction boxes
  * @param {HTMLCanvasElement} canvas canvas tag reference
  * @param {Array[Object]} boxes boxes array
  */
-export const renderBoxes = (canvas, boxes) => {
+export const renderBoxes = (canvas, boxes, labels) => {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // clean canvas
 
@@ -20,7 +18,7 @@ export const renderBoxes = (canvas, boxes) => {
   ctx.textBaseline = "top";
 
   boxes.forEach((box) => {
-    const klass = labels[box.label];
+    const klass = labels[box.label] || `CLASS_${box.label}`;
     const color = colors.get(box.label);
     const score = (box.probability * 100).toFixed(1);
     const [x1, y1, width, height] = box.bounding;

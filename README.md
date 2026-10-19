@@ -1,97 +1,117 @@
-**Looking for contributors/ maintainers for this repo**: 
-I have become busy with other stuff in the last years, still trying to maintain this repo as it is the current best OSS option for nudity detection,
-Looking for interested mainttainer, who can add/ work on more features for this repo (with my help of course)
+# SafeNet
 
-# NudeNet: lightweight Nudity detection
+SafeNet analizza immagini con un modello ONNX e restituisce le aree rilevate, il punteggio e i riquadri. La libreria Python offre anche la detect dei riquadri; la demo browser visualizza i riquadri senza inviare immagini a un server.
 
-https://nudenet.notai.tech/ in-browser demo (the detector is run client side, i.e: in your browser, images are not sent to a server)
+## Installazione Python
 
-```bash
-pip install --upgrade "nudenet>=3.4.2"
-```
-
-```python
-from nudenet import NudeDetector
-detector = NudeDetector()
-# the 320n model included with the package will be used
-
-detector.detect('image.jpg') # Returns list of detections
-
-detector.detect_batch(['image_1.jpg', 'image_2.jpg']) # Returns list of [list of detections]
-```
-
-- [Python package example in colab](https://colab.research.google.com/drive/1WChIMZ9Yzseije3Oj-Ye-cGCMLw8azvZ?usp=sharing)
-
-- `detect` and `detect_batch` accept file path(s), opencv image(s), image bytes(s), open(image_path, 'rb') (buffereader) objects
-
-#### Available models
-
-| Model | resolution trained | based on | onnx link | pytorch link |
-| --- | --- | --- | --- | -- |
-| 320n | 320x320 | ultralytics yolov8n | [link](https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/320n.onnx) | [link](https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/320n.pt)
-| 640m | 640x640 | ultralytics yolov8m | [link](https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.onnx) | [link](https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.pt)
-
-```python
-# To use the 640m model, download the onnx file and pass the path to the model_path argument
-
-detector = NudeDetector(model_path="downloaded_640m.onnx path", inference_resolution=640)
-```
-
-- 320n is the default model and is included in the `nudenet` python package by default
-
-
-```python
-detection_example = [
- {'class': 'BELLY_EXPOSED',
-  'score': 0.799403190612793,
-  'box': [64, 182, 49, 51]},
- {'class': 'FACE_FEMALE',
-  'score': 0.7881264686584473,
-  'box': [82, 66, 36, 43]},
- ]
-```
-
-```python
-nude_detector.censor('image.jpg') # returns censored image output path
-
-# optional censor(self, image_path, classes=[], output_path=None) classes and output_path can be passed
-```
-
-```python
-all_labels = [
-    "FEMALE_GENITALIA_COVERED",
-    "FACE_FEMALE",
-    "BUTTOCKS_EXPOSED",
-    "FEMALE_BREAST_EXPOSED",
-    "FEMALE_GENITALIA_EXPOSED",
-    "MALE_BREAST_EXPOSED",
-    "ANUS_EXPOSED",
-    "FEET_EXPOSED",
-    "BELLY_COVERED",
-    "FEET_COVERED",
-    "ARMPITS_COVERED",
-    "ARMPITS_EXPOSED",
-    "FACE_MALE",
-    "BELLY_EXPOSED",
-    "MALE_GENITALIA_EXPOSED",
-    "ANUS_COVERED",
-    "FEMALE_BREAST_COVERED",
-    "BUTTOCKS_COVERED",
-]
-```
-
-
-### Docker
+Richiede Python 3.8 o superiore. Dalla radice del repository:
 
 ```bash
-docker run -it -p8080:8080 ghcr.io/notai-tech/nudenet:latest
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
+
+Su Windows attivare l’ambiente con `.venv\Scripts\activate`.
+
+## Rilevamento
+
+```python
+from safenet import SafeDetector
+
+detector = SafeDetector()
+detections = detector.detect("immagine.jpg")
+batch = detector.detect_batch(["uno.jpg", "due.jpg"])
+```
+
+`detect` accetta un percorso, un array OpenCV, bytes o un file binario aperto. `detect_batch` restituisce una lista di rilevamenti per ciascuna immagine. Ogni rilevamento contiene `class`, `score` e `box` nel formato `[x, y, larghezza, altezza]`.
+
+Le etichette pubbliche, mantenute nello stesso ordine degli output del modello, sono:
+
+```text
+F_GENIE_CROSSED, FAUCET_F, BUTTONS_EXPRESS, F_BEST_EXPRESS,
+F_GENIE_EXPRESS, M_BEST_EXPRESS, ANGUS_EXPRESS, FIT_EXPRESS,
+BELL_CROSSED, FIT_CROSSED, ARMCHAIRS_CROSSED, ARMCHAIRS_EXPRESS,
+FAUCET_M, BELL_EXPRESS, M_GENIE_EXPRESS, ANGUS_CROSSED,
+F_BEST_CROSSED, BUTTONS_CROSSED
+```
+
+`320n.onnx` è il modello predefinito: SafeNet lo cerca prima in `models/320n.onnx`, poi nel package. Per selezionare un altro ONNX basta passare il percorso; risoluzione e classi vengono lette dai metadati del modello:
+
+```python
+detector = SafeDetector(model_path="models/f_best-v4.2.onnx")
+predictions = detector.detect("immagine.jpg")
+```
+
+Sono utilizzabili allo stesso modo `640m.onnx`, `f_best_v4.2.onnx` e `top_yolov8s.onnx`. Per `320n` e `640m` le classi vengono restituite con gli alias SafeNet; gli altri modelli usano i nomi dichiarati nei metadati ONNX. È possibile forzare la risoluzione con `inference_resolution=640` oppure con una coppia `(larghezza, altezza)`, ma normalmente non serve. I checkpoint `.pt` non sono caricati direttamente: esportarli prima in ONNX.
+
+## GPU
+
+SafeDetector sceglie automaticamente CUDA quando ONNX Runtime rileva `CUDAExecutionProvider`, altrimenti usa la CPU. Se l’inizializzazione CUDA fallisce, ripiega sulla CPU. Per forzare i provider, passarli al costruttore, per esempio `SafeDetector(providers=["CPUExecutionProvider"])`.
+
+Installare una sola distribuzione ONNX Runtime compatibile con il sistema:
 
 ```bash
-curl -F f1=@"images.jpeg" "http://localhost:8080/infer"
+# CPU
+python -m pip install onnxruntime
 
-{"prediction": [[{"class": "BELLY_EXPOSED", "score": 0.8511635065078735, "box": [71, 182, 31, 50]}, {"class": "FACE_FEMALE", "score": 0.8033977150917053, "box": [83, 69, 21, 37]}, {"class": "FEMALE_BREAST_EXPOSED", "score": 0.7963727712631226, "box": [85, 137, 24, 38]}, {"class": "FEMALE_BREAST_EXPOSED", "score": 0.7709134817123413, "box": [63, 136, 20, 37]}, {"class": "ARMPITS_EXPOSED", "score": 0.7005534172058105, "box": [60, 127, 10, 20]}, {"class": "FEMALE_GENITALIA_EXPOSED", "score": 0.6804671287536621, "box": [81, 241, 14, 24]}]], "success": true}⏎
+# GPU NVIDIA: sostituire la versione CPU con quella GPU e verificare driver/CUDA supportati
+python -m pip uninstall -y onnxruntime
+python -m pip install onnxruntime-gpu
 ```
 
-#### Some interesting projects based on NudeNet
-1 - by https://github.com/w-e-w, censor extension ps://github.com/notAI-tech/NudeNet/issues/131
+Verificare i provider disponibili con `python -c "import onnxruntime as o; print(o.get_available_providers())"`. La presenza del provider non garantisce da sola che driver e librerie CUDA installate siano compatibili.
+
+## MagicDetector desktop
+
+Installare le dipendenze GUI e di scansione, poi avviare dalla radice del repository:
+
+```bash
+python -m pip install -r MagicDetector/requirements.txt
+python -m MagicDetector.MagicDetector
+```
+
+Il comando va eseguito dalla radice del repository, non da `in_browser`. Su Ubuntu/Debian installa le librerie native Qt/XCB con:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libxkbcommon-x11-0 \
+	libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+	libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1
+```
+
+Serve anche una sessione grafica accessibile: installare questi pacchetti non crea un `DISPLAY` in un container headless.
+
+La finestra permette di scegliere al volo uno degli ONNX in `models/`, aggiungere cartelle da scansionare, escludere cartelle e consultare la galleria indicizzata. Il modello scelto viene usato dalla scansione successiva; non viene cambiato nel mezzo di una scansione già avviata. I risultati e le preferenze sono salvati nei database locali `images_index.db` e `settings.db` nella directory di lavoro. Il database immagini creato dalla versione precedente usa chiavi diverse: esegui una nuova scansione in un database vuoto dopo l’aggiornamento.
+
+## Demo in browser
+
+La demo React esegue la rilevazione localmente nel browser. Richiede Node.js e npm:
+
+```bash
+cd in_browser
+npm install
+npm start
+```
+
+Il menu della demo permette di cambiare modello senza ricaricare la pagina; i pesi vengono caricati al momento della selezione. `npm run build` copia gli ONNX da `../models/` nel sito statico, quindi il build contiene circa 240 MB con l’attuale set di modelli. La demo disegna i riquadri e le etichette sull’immagine selezionata; non applica una censura permanente all’immagine.
+
+## FastDeploy
+
+`fastdeploy_recipe/` contiene un predictor FastDeploy senza interfaccia grafica: `predictor(image_paths, batch_size=1, model_name="320n.onnx")` accetta il nome di un ONNX in `models/` e carica il modello alla prima richiesta o quando cambia `model_name`. Il container include gli ONNX presenti in `models/` (non i checkpoint `.pt`). Per eseguirlo, installare prima SafeNet dalla radice (`python -m pip install -e .`), quindi installare le dipendenze FastDeploy del recipe e avviare il servizio secondo la versione di FastDeploy in uso.
+
+## Addestramento
+
+`train.py` prepara i dati e avvia Ultralytics YOLO11 con `yolo11n.pt` per impostazione predefinita. In un ambiente Python dedicato installare PyTorch appropriato per il sistema (CPU o CUDA), poi:
+
+```bash
+python -m pip install ultralytics Pillow requests tqdm
+python train.py
+```
+
+Modificare `YOLO11_MODEL` e gli altri parametri nella sezione di configurazione per scegliere modello, batch e augmentations. Per esportare i checkpoint `.pt` presenti in `models/` in ONNX eseguire `python pt2onnx.py`; lo script ignora gli ONNX già esportati. `train.py` registra in memoria le estensioni temporanee del dataset, senza modificare l’installazione Ultralytics. Scarica un dataset e usa un checkpoint iniziale pubblicati esternamente; il checkpoint può richiedere il download manuale dal link nel sorgente. Il processo può richiedere molto spazio, tempo e memoria GPU. Prima di avviare un training completo, verificare dataset, annotazioni, mapping delle classi e compatibilità dell’export ONNX. Il training non esporta né sostituisce automaticamente `safenet/320n.onnx`.
+
+## Note sul modello
+
+SafeNet restituisce categorie e riquadri, non una decisione infallibile: verificare i risultati prima di usare le immagini in flussi automatici.

@@ -19,8 +19,9 @@ from PySide6.QtWidgets import (
 
 from liteindex import KVIndex, DefinedIndex
 
-from SettingsBar import SettingsBar
-from GalleryView import ImageGallery
+from .SettingsBar import SettingsBar
+from .GalleryView import ImageGallery
+from safenet import all_labels_sfw
 
 
 images_index = DefinedIndex(
@@ -29,33 +30,17 @@ images_index = DefinedIndex(
         "image_path": "string",
         "image_size": "number",
         "image_hash": "string",
-        "FEMALE_GENITALIA_COVERED": "number",
-        "FACE_FEMALE": "number",
-        "BUTTOCKS_EXPOSED": "number",
-        "FEMALE_BREAST_EXPOSED": "number",
-        "FEMALE_GENITALIA_EXPOSED": "number",
-        "MALE_BREAST_EXPOSED": "number",
-        "ANUS_EXPOSED": "number",
-        "FEET_EXPOSED": "number",
-        "BELLY_COVERED": "number",
-        "FEET_COVERED": "number",
-        "ARMPITS_COVERED": "number",
-        "ARMPITS_EXPOSED": "number",
-        "FACE_MALE": "number",
-        "BELLY_EXPOSED": "number",
-        "MALE_GENITALIA_EXPOSED": "number",
-        "ANUS_COVERED": "number",
-        "FEMALE_BREAST_COVERED": "number",
-        "BUTTOCKS_COVERED": "number",
+        "detections": "string",
+        **{label: "number" for label in all_labels_sfw},
     },
     db_path="images_index.db",
 )
 
 
-class NSFWSniffer(QMainWindow):
+class MagicDetector(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("NSFW Sniffer")
+        self.setWindowTitle("MagicDetector")
         self.settings_index = KVIndex("settings.db")
         self.images_index = images_index
 
@@ -78,7 +63,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     qdarktheme.setup_theme("auto")
 
-    window = NSFWSniffer()
+    window = MagicDetector()
     window.resize(1200, 800)
     window.show()
 

@@ -1,34 +1,33 @@
 import os
 import _io
-import math
+import ast
 import cv2
 import numpy as np
 import onnxruntime
-from onnxruntime.capi import _pybind_state as C
 
-__labels = [
-    "FEMALE_GENITALIA_COVERED",
-    "FACE_FEMALE",
-    "BUTTOCKS_EXPOSED",
-    "FEMALE_BREAST_EXPOSED",
-    "FEMALE_GENITALIA_EXPOSED",
-    "MALE_BREAST_EXPOSED",
-    "ANUS_EXPOSED",
-    "FEET_EXPOSED",
-    "BELLY_COVERED",
-    "FEET_COVERED",
-    "ARMPITS_COVERED",
-    "ARMPITS_EXPOSED",
-    "FACE_MALE",
-    "BELLY_EXPOSED",
-    "MALE_GENITALIA_EXPOSED",
-    "ANUS_COVERED",
-    "FEMALE_BREAST_COVERED",
-    "BUTTOCKS_COVERED",
+all_labels_sfw = [
+    "F_GENIE_CROSSED",
+    "FAUCET_F",
+    "BUTTONS_EXPRESS",
+    "F_BEST_EXPRESS",
+    "F_GENIE_EXPRESS",
+    "M_BEST_EXPRESS",
+    "ANGUS_EXPRESS",
+    "FIT_EXPRESS",
+    "BELL_CROSSED",
+    "FIT_CROSSED",
+    "ARMCHAIRS_CROSSED",
+    "ARMCHAIRS_EXPRESS",
+    "FAUCET_M",
+    "BELL_EXPRESS",
+    "M_GENIE_EXPRESS",
+    "ANGUS_CROSSED",
+    "F_BEST_CROSSED",
+    "BUTTONS_CROSSED",
 ]
 
 
-def _read_image(image_path, target_size=320):
+def _read_image(image_path, target_size=(320, 320)):
     if isinstance(image_path, str):
         mat = cv2.imread(image_path)
     elif isinstance(image_path, np.ndarray):
@@ -42,9 +41,16 @@ def _read_image(image_path, target_size=320):
             "please make sure the image_path is str or np.ndarray or bytes"
         )
 
+    if mat is None:
+        raise ValueError("the image could not be decoded")
     image_original_width, image_original_height = mat.shape[1], mat.shape[0]
 
-    mat_c3 = cv2.cvtColor(mat, cv2.COLOR_RGBA2BGR)
+    if len(mat.shape) == 2:
+        mat_c3 = cv2.cvtColor(mat, cv2.COLOR_GRAY2BGR)
+    elif mat.shape[2] == 4:
+        mat_c3 = cv2.cvtColor(mat, cv2.COLOR_BGRA2BGR)
+    else:
+        mat_c3 = mat
 
     max_size = max(mat_c3.shape[:2])  # get max size from width and height
     x_pad = max_size - mat_c3.shape[1]  # set xPadding
@@ -57,7 +63,7 @@ def _read_image(image_path, target_size=320):
     input_blob = cv2.dnn.blobFromImage(
         mat_pad,
         1 / 255.0,  # normalize
-        (target_size, target_size),  # resize to model input size
+        target_size,  # resize to model input size
         (0, 0, 0),  # mean subtraction
         swapRB=True,  # swap red and blue channels
         crop=False,  # don't crop
@@ -84,8 +90,19 @@ def _postprocess(
     image_original_height,
     model_width,
     model_height,
+    class_names,
 ):
-    outputs = np.transpose(np.squeeze(output[0]))
+    outputs = np.squeeze(output[0])
+    if outputs.ndim != 2:
+        raise ValueError(f"unexpected model output shape: {outputs.shape}")
+    expected_channels = len(class_names) + 4
+    if outputs.shape[0] == expected_channels:
+        outputs = np.transpose(outputs)
+    elif outputs.shape[1] != expected_channels:
+        raise ValueError(
+            f"model output has {outputs.shape} values, expected "
+            f"{expected_channels} values per detection"
+        )
     rows = outputs.shape[0]
     boxes = []
     scores = []
@@ -123,7 +140,7 @@ def _postprocess(
             scores.append(max_score)
             boxes.append([x, y, w, h])
 
-    indices = cv2.dnn.NMSBoxes(boxes, scores, 0.25, 0.45)
+    indices = np.asarray(cv2.dnn.NMSBoxes(boxes, scores, 0.25, 0.45)).reshape(-1)
 
     detections = []
     for i in indices:
@@ -134,7 +151,7 @@ def _postprocess(
         x, y, w, h = box
         detections.append(
             {
-                "class": __labels[class_id],
+                "class": class_names[class_id],
                 "score": float(score),
                 "box": [int(x), int(y), int(w), int(h)],
             }
@@ -143,19 +160,84 @@ def _postprocess(
     return detections
 
 
-class NudeDetector:
-    def __init__(self, model_path=None, providers=None, inference_resolution=320):
-        self.onnx_session = onnxruntime.InferenceSession(
-            os.path.join(os.path.dirname(__file__), "320n.onnx")
-            if not model_path
-            else model_path,
-            # providers=C.get_available_providers() if not providers else providers,
-        )
+class SafeDetector:
+    def __init__(self, model_path=None, providers=None, inference_resolution=None):
+        if model_path is None:
+            repository_model = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "models", "320n.onnx"
+            )
+            packaged_model = os.path.join(os.path.dirname(__file__), "320n.onnx")
+            model_path = (
+                repository_model if os.path.isfile(repository_model) else packaged_model
+            )
+        if providers is not None:
+            self.onnx_session = onnxruntime.InferenceSession(
+                model_path, providers=providers
+            )
+        else:
+            available_providers = onnxruntime.get_available_providers()
+            if "CUDAExecutionProvider" in available_providers:
+                try:
+                    self.onnx_session = onnxruntime.InferenceSession(
+                        model_path,
+                        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+                    )
+                except Exception:
+                    self.onnx_session = onnxruntime.InferenceSession(
+                        model_path, providers=["CPUExecutionProvider"]
+                    )
+            else:
+                self.onnx_session = onnxruntime.InferenceSession(
+                    model_path, providers=["CPUExecutionProvider"]
+                )
         model_inputs = self.onnx_session.get_inputs()
+        input_shape = model_inputs[0].shape
+        self.has_static_batch = isinstance(input_shape[0], int)
+        metadata = self.onnx_session.get_modelmeta().custom_metadata_map
+        try:
+            metadata_size = ast.literal_eval(metadata.get("imgsz", "[320, 320]"))
+        except (ValueError, SyntaxError):
+            metadata_size = [320, 320]
 
-        self.input_width = inference_resolution
-        self.input_height = inference_resolution
+        self.input_height = self._static_dimension(input_shape[2], metadata_size[0])
+        self.input_width = self._static_dimension(input_shape[3], metadata_size[1])
+        if inference_resolution is not None:
+            if isinstance(inference_resolution, (tuple, list)):
+                self.input_width, self.input_height = inference_resolution
+            else:
+                self.input_width = self.input_height = inference_resolution
+
+        try:
+            model_names = ast.literal_eval(metadata.get("names", "{}"))
+        except (ValueError, SyntaxError):
+            model_names = {}
+        model_name = os.path.basename(model_path)
+        if model_name == "top_yolov8s.onnx":
+            self.class_names = ["top"]
+        elif model_name in {"320n.onnx", "640m.onnx"}:
+            self.class_names = all_labels_sfw
+        elif isinstance(model_names, dict) and model_names:
+            self.class_names = [
+                str(model_names[key]) for key in sorted(model_names, key=lambda key: int(key))
+            ]
+        else:
+            self.class_names = None
+
         self.input_name = model_inputs[0].name
+
+        if self.class_names is None:
+            output_shape = self.onnx_session.get_outputs()[0].shape
+            channel_count = next(
+                (dimension for dimension in output_shape[1:] if isinstance(dimension, int)),
+                None,
+            )
+            if channel_count is None or channel_count <= 4:
+                raise ValueError("the model does not provide class names or a valid output shape")
+            self.class_names = [f"CLASS_{index}" for index in range(channel_count - 4)]
+
+    @staticmethod
+    def _static_dimension(dimension, fallback):
+        return dimension if isinstance(dimension, int) else int(fallback)
 
     def detect(self, image_path):
         (
@@ -166,7 +248,7 @@ class NudeDetector:
             y_pad,
             image_original_width,
             image_original_height,
-        ) = _read_image(image_path, self.input_width)
+        ) = _read_image(image_path, (self.input_width, self.input_height))
         outputs = self.onnx_session.run(None, {self.input_name: preprocessed_image})
         detections = _postprocess(
             outputs,
@@ -178,6 +260,7 @@ class NudeDetector:
             image_original_height,
             self.input_width,
             self.input_height,
+            self.class_names,
         )
 
         return detections
@@ -193,6 +276,9 @@ class NudeDetector:
         Returns:
             List of detection results for each image.
         """
+        if self.has_static_batch:
+            return [self.detect(image_path) for image_path in image_paths]
+
         all_detections = []
 
         for i in range(0, len(image_paths), batch_size):
@@ -209,7 +295,7 @@ class NudeDetector:
                     y_pad,
                     image_original_width,
                     image_original_height,
-                ) = _read_image(image_path, self.input_width)
+                ) = _read_image(image_path, (self.input_width, self.input_height))
                 batch_inputs.append(preprocessed_image)
                 batch_metadata.append(
                     (
@@ -248,6 +334,7 @@ class NudeDetector:
                     image_original_height,
                     self.input_width,
                     self.input_height,
+                    self.class_names,
                 )
                 all_detections.append(detections)
 
@@ -278,7 +365,7 @@ class NudeDetector:
 
 
 if __name__ == "__main__":
-    detector = NudeDetector()
+    detector = SafeDetector()
     # detections = detector.detect("/Users/praneeth.bedapudi/Desktop/cory.jpeg")
     print(
         detector.detect_batch(

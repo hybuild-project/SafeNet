@@ -6,11 +6,10 @@ import { renderBoxes } from "./renderBox";
  * Detect Image
  * @param {HTMLImageElement} image Image to detect
  * @param {HTMLCanvasElement} canvas canvas to draw boxes
- * @param {ort.InferenceSession} session YOLOv8 onnxruntime session
+ * @param {Object} session ONNX sessions and active model metadata
  * @param {Number} topk Integer representing the maximum number of boxes to be selected per class
  * @param {Number} iouThreshold Float representing the threshold for deciding whether boxes overlap too much with respect to IOU
  * @param {Number} scoreThreshold Float representing the threshold for deciding when to remove boxes based on score
- * @param {Number[]} inputShape model input shape. Normally in YOLO model [batch, channels, width, height]
  */
 export const detectImage = async (
   image,
@@ -18,9 +17,9 @@ export const detectImage = async (
   session,
   topk,
   iouThreshold,
-  scoreThreshold,
-  inputShape
+  scoreThreshold
 ) => {
+  const { inputShape, labels } = session;
   const [modelWidth, modelHeight] = inputShape.slice(2);
   const [input, xRatio, yRatio] = preprocessing(image, modelWidth, modelHeight);
 
@@ -62,7 +61,7 @@ export const detectImage = async (
 
   console.log(boxes); // log boxes
 
-  renderBoxes(canvas, boxes); // Draw boxes
+  renderBoxes(canvas, boxes, labels); // Draw boxes
   input.delete(); // delete unused Mat
 };
 

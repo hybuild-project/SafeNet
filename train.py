@@ -1,7 +1,7 @@
-# NOTE: to prevent user trauma from accidental exposure, .zip is renamed to .bin and images have their file extensions changed to _nsfw (so thumbnails won't render automatically & opening won't default to an image application)
+# The downloaded archive and extracted images use non-displayable suffixes to reduce accidental exposure.
 
 ''' 
-Trains a new NSFW YOLO model based on an existing one (in order to upgrade to newer YOLO base model versions and/or adjust for alternate image dimensions)
+Trains a SafeNet YOLO model from an existing checkpoint.
 
 # Script Execution Instructions
 
@@ -10,15 +10,15 @@ Trains a new NSFW YOLO model based on an existing one (in order to upgrade to ne
 # install cuDNN from https://developer.nvidia.com/cudnn
 
 # linux
-python -m venv yoloNSFWTraining
-source yoloNSFWTraining/bin/activate
+python -m venv safenetTraining
+source safenetTraining/bin/activate
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 pip install Pillow ultralytics requests tqdm
 python train.py
 
 # windows
-python -m venv yoloNSFWTraining
-yoloNSFWTraining\Scripts\activate
+python -m venv safenetTraining
+safenetTraining\\Scripts\\activate
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 pip install Pillow ultralytics requests tqdm
 python train.py
@@ -30,25 +30,21 @@ from pathlib import Path
 import zipfile
 import requests
 import shutil
-import time
 from tqdm import tqdm
 import torch
 from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS
 
-nsfw_pseudo_file_extensions = ["jpg_nsfw", "jpeg_nsfw", "png_nsfw"]
-
-missing_formats = [fmt for fmt in nsfw_pseudo_file_extensions if fmt not in IMG_FORMATS]
-if missing_formats:
-    raise ValueError(
-        f'Please add {", ".join(nsfw_pseudo_file_extensions)} to IMG_FORMATS in yoloNSFWTraining virtual environment file '
-        r'Lib\site-packages\ultralytics\data\utils.py'
-    )
+safe_file_extensions = ["jpg_safe", "jpeg_safe", "png_safe"]
+if hasattr(IMG_FORMATS, "update"):
+    IMG_FORMATS.update(safe_file_extensions)
+else:
+    IMG_FORMATS.extend(safe_file_extensions)
 
 # === CONFIGURATION ===
 DATASET_URL = "https://archive.org/download/NudeNet_classifier_dataset_v1/NudeNet_Classifier_train_data_x320.zip"
-OLD_NSFW_MODEL_URL = "https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.pt"
-YOLOV11_MODEL = "yolo11n.pt" # Available_Models: "yolo11n.pt", "yolo11s.pt", "yolo11m.pt", "yolo11l.pt", "yolo11x.pt"
+BASE_CHECKPOINT_URL = "https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.pt"
+YOLO11_MODEL = "yolo11n.pt" # Available models: yolo11n, yolo11s, yolo11m, yolo11l, yolo11x
 CONFIDENCE_THRESHOLD = 0.25
 NMS_THRESHOLD = 0.7
 PATIENCE = 5
@@ -65,37 +61,37 @@ BGR = .05
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 DATASET_PATH = Path("dataset.bin")
-EXTRACTED_FOLDER = Path("NSFW_dataset_extracted")
-OLD_NSFW_MODEL_PATH = Path(Path(OLD_NSFW_MODEL_URL).name)
+EXTRACTED_FOLDER = Path("SafeNet_dataset_extracted")
+BASE_CHECKPOINT_PATH = Path(Path(BASE_CHECKPOINT_URL).name)
 
-LABELS = [
-    "FEMALE_GENITALIA_COVERED",
-    "FACE_FEMALE",
-    "BUTTOCKS_EXPOSED",
-    "FEMALE_BREAST_EXPOSED",
-    "FEMALE_GENITALIA_EXPOSED",
-    "MALE_BREAST_EXPOSED",
-    "ANUS_EXPOSED",
-    "FEET_EXPOSED",
-    "BELLY_COVERED",
-    "FEET_COVERED",
-    "ARMPITS_COVERED",
-    "ARMPITS_EXPOSED",
-    "FACE_MALE",
-    "BELLY_EXPOSED",
-    "MALE_GENITALIA_EXPOSED",
-    "ANUS_COVERED",
-    "FEMALE_BREAST_COVERED",
-    "BUTTOCKS_COVERED"
+all_labels_sfw = [
+    "F_GENIE_CROSSED",
+    "FAUCET_F",
+    "BUTTONS_EXPRESS",
+    "F_BEST_EXPRESS",
+    "F_GENIE_EXPRESS",
+    "M_BEST_EXPRESS",
+    "ANGUS_EXPRESS",
+    "FIT_EXPRESS",
+    "BELL_CROSSED",
+    "FIT_CROSSED",
+    "ARMCHAIRS_CROSSED",
+    "ARMCHAIRS_EXPRESS",
+    "FAUCET_M",
+    "BELL_EXPRESS",
+    "M_GENIE_EXPRESS",
+    "ANGUS_CROSSED",
+    "F_BEST_CROSSED",
+    "BUTTONS_CROSSED",
 ]
 
 IGNORED_LABELS = [
-    "FACE_FEMALE",
-    "FEET_EXPOSED",
-    "BELLY_COVERED",
-    "FEET_COVERED",
-    "ARMPITS_COVERED",
-    "FACE_MALE"
+    "FAUCET_F",
+    "FIT_EXPRESS",
+    "BELL_CROSSED",
+    "FIT_CROSSED",
+    "ARMCHAIRS_CROSSED",
+    "FAUCET_M",
 ]
 
 def download_dataset():
@@ -148,7 +144,7 @@ def extract_dataset():
                     continue
 
                 dest_dir = EXTRACTED_FOLDER / file_path.parent               
-                dest = dest_dir / f"{counter}{file_path.suffix}_nsfw"
+                dest = dest_dir / f"{counter}{file_path.suffix}_safe"
                 counter += 1
                 if dest.exists():
                     continue
@@ -162,14 +158,14 @@ def extract_dataset():
     else:
         logging.info(f"Dataset already extracted to {EXTRACTED_FOLDER}")
 
-def download_old_nsfw_model():
-    if not OLD_NSFW_MODEL_PATH.exists():
-        logging.info(f"Model download from GitHub requires authentication. Please download the model through your web browser manually by visiting: {OLD_NSFW_MODEL_URL}")
-        logging.info(f"After downloading, save it as {OLD_NSFW_MODEL_PATH.resolve()}")
-        while not OLD_NSFW_MODEL_PATH.exists():
-            time.sleep(1)
+def download_base_checkpoint():
+    if not BASE_CHECKPOINT_PATH.exists():
+        raise FileNotFoundError(
+            f"Download the base checkpoint from {BASE_CHECKPOINT_URL} "
+            f"and save it as {BASE_CHECKPOINT_PATH.resolve()}"
+        )
     else:
-        logging.info(f"Model already exists: {str(OLD_NSFW_MODEL_PATH)}")
+        logging.info(f"Base checkpoint already exists: {BASE_CHECKPOINT_PATH}")
 
 def get_next_multiple_of_32(image_path):
     from PIL import Image
@@ -179,8 +175,8 @@ def get_next_multiple_of_32(image_path):
     return ((max_dim + 31) // 32) * 32
         
 def process_images():
-    download_old_nsfw_model()
-    model = YOLO(str(OLD_NSFW_MODEL_PATH))
+    download_base_checkpoint()
+    model = YOLO(str(BASE_CHECKPOINT_PATH))
     
     images_to_process = [file for file in EXTRACTED_FOLDER.rglob("*")
                          if file.is_file() and file.suffix != ".txt"]
@@ -198,7 +194,7 @@ def process_images():
                     try:
                         x,y,w,h = box.xywhn[0].tolist()
                         class_id = box.cls[0].tolist()
-                        label = LABELS[int(class_id)]
+                        label = all_labels_sfw[int(class_id)]
                         if label not in IGNORED_LABELS:
                             filtered_boxes.append((label, x, y, w, h))
                     except Exception as e:
@@ -216,7 +212,7 @@ def process_images():
                 else:
                     with txt_output_path.open("w") as f:
                         for label, centerX, centerY, width, height in filtered_boxes:                            
-                            f.write(f"{LABELS.index(label)} {centerX:.6f} {centerY:.6f} {width:.6f} {height:.6f}\n")
+                            f.write(f"{all_labels_sfw.index(label)} {centerX:.6f} {centerY:.6f} {width:.6f} {height:.6f}\n")
                             
         except Exception as e:
             logging.error(f"Skipping invalid image file {image_path}: {e}")
@@ -239,12 +235,12 @@ def download_yolo11_model(model_name):
 
 def create_data_yaml_file():
     names_yaml = ""
-    for index, label in enumerate(LABELS):
+    for index, label in enumerate(all_labels_sfw):
         names_yaml += f"  {index}: {label}\n"
     data_yaml = f"""path: ./{str(EXTRACTED_FOLDER)}
-train: {Path('NSFW_dataset_extracted/training').resolve()}
-val: {Path('NSFW_dataset_extracted/validation').resolve()}
-test: {Path('NSFW_dataset_extracted/testing').resolve()}
+train: {Path('SafeNet_dataset_extracted/training').resolve()}
+val: {Path('SafeNet_dataset_extracted/validation').resolve()}
+test: {Path('SafeNet_dataset_extracted/testing').resolve()}
 
 # Classes
 names:
@@ -257,23 +253,23 @@ names:
 def train_yolo11():
     extract_dataset()
     process_images()
-    download_yolo11_model(YOLOV11_MODEL)
+    download_yolo11_model(YOLO11_MODEL)
     create_data_yaml_file()
-    valid_class_indices = [i for i, label in enumerate(LABELS) if label not in IGNORED_LABELS]
+    valid_class_indices = [i for i, label in enumerate(all_labels_sfw) if label not in IGNORED_LABELS]
     classes_str = "[" + ", ".join(map(str, valid_class_indices)) + "]"
-    logging.info("Starting YOLOv11 training...")
+    logging.info("Starting YOLO11 training...")
 
     result = subprocess.run([
         "yolo",
         "task=detect",
         "mode=train",
-        f"model={YOLOV11_MODEL}",
+        f"model={YOLO11_MODEL}",
         f"data={Path('data.yaml').resolve()}",
         f"patience={PATIENCE}",
         f"batch={BATCH_SIZE}",
         f"imgsz={IMG_SIZE}",
         f"workers={WORKERS}",
-        f"resume={'True' if Path('runs').exists() else 'False'}",
+        "resume=False",
         f"classes={classes_str}",
         f"degrees={DEGREES}",
         f"shear={SHEAR}",

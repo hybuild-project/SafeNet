@@ -1,6 +1,6 @@
 {
-  "name": "yolov8-onnxruntime-web",
-  "homepage": "https://nudenet.notai.tech/",
+  "name": "safenet-in-browser",
+  "homepage": "https://hybuild-project.github.io/SafeNet/",
   "version": "0.1.0",
   "dependencies": {
     "@techstark/opencv-js": "4.9.0-release.3",
